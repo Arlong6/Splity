@@ -1,32 +1,16 @@
-//
-//  SplityApp.swift
-//  Splity
-//
-//  Created by 簡川隆 on 2026/2/15.
-//
-
 import SwiftUI
 import SwiftData
 
 @main
 struct SplityApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Item.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
+    @AppStorage("appLanguage") private var appLanguage = "zh-Hant"
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            SplashView()
+                .environment(\.locale, Locale(identifier: appLanguage))
         }
-        .modelContainer(sharedModelContainer)
+        .modelContainer(for: [Group.self, Member.self, Expense.self, ExpenseSplit.self, HistoryRecord.self])
     }
 }
+
