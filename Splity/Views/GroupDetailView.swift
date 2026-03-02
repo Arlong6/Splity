@@ -20,7 +20,7 @@ struct GroupDetailView: View {
     }
 
     var sortedExpenses: [Expense] {
-        group.expenses.sorted { ($0.date ?? $0.createdAt) > ($1.date ?? $1.createdAt) }
+        group.expenses.sorted { $0.totalAmount > $1.totalAmount }
     }
 
     var totalExpenseAmount: Decimal {

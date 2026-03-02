@@ -32,26 +32,15 @@ final class ExpenseEditViewModel {
         members.filter { selectedMemberIDs.contains($0.id) }
     }
 
-    /// 每人基本份額 = floor(total / n)，最小份額
+    /// 每人均攤金額 = ceil(total / n)，所有人付相同金額
     var evenSplitAmount: Decimal? {
         guard let total = totalAmount, !selectedMemberIDs.isEmpty else { return nil }
         let n = Decimal(selectedMemberIDs.count)
         let scale = Decimal.currencyFractionDigits(Locale.current.currency?.identifier ?? "TWD")
-        var base = Decimal()
+        var result = Decimal()
         var divided = total / n
-        NSDecimalRound(&base, &divided, scale, .down)
-        return base
-    }
-
-    /// 部分人需多付的金額 = base + 1 unit；若能整除則為 nil
-    var evenSplitUpperAmount: Decimal? {
-        guard let total = totalAmount,
-              let base = evenSplitAmount,
-              !selectedMemberIDs.isEmpty else { return nil }
-        guard total != base * Decimal(selectedMemberIDs.count) else { return nil }
-        let scale = Decimal.currencyFractionDigits(Locale.current.currency?.identifier ?? "TWD")
-        let unit = Decimal(sign: .plus, exponent: -scale, significand: 1)
-        return base + unit
+        NSDecimalRound(&result, &divided, scale, .up)
+        return result
     }
 
     var customAmountsSum: Decimal {
@@ -169,24 +158,14 @@ final class ExpenseEditViewModel {
             let sortedSelected = selectedMembers.sorted { $0.name < $1.name }
             let n = sortedSelected.count
             let scale = Decimal.currencyFractionDigits(Locale.current.currency?.identifier ?? "TWD")
-            let unit = Decimal(sign: .plus, exponent: -scale, significand: 1) // 1 TWD 或 $0.01
 
-            // base = floor(total / n)
-            var base = Decimal()
+            // 所有人付 ceil(total / n)，多出的部分為付款人的福利
+            var perPerson = Decimal()
             var divided = total / Decimal(n)
-            NSDecimalRound(&base, &divided, scale, .down)
+            NSDecimalRound(&perPerson, &divided, scale, .up)
 
-            // 需要多付 1 unit 的人數 = (total - base×n) / unit
-            var remainderCount = Decimal()
-            var ratio = (total - base * Decimal(n)) / unit
-            NSDecimalRound(&remainderCount, &ratio, 0, .plain)
-            let extraCount = Int(NSDecimalNumber(decimal: remainderCount).intValue)
-
-            // 前 extraCount 人付 base+unit，其餘付 base
-            // 任意兩人之間最多差 1 unit
-            for (index, member) in sortedSelected.enumerated() {
-                let amount = index < extraCount ? base + unit : base
-                splits.append(ExpenseSplit(member: member, amount: amount))
+            for member in sortedSelected {
+                splits.append(ExpenseSplit(member: member, amount: perPerson))
             }
         } else {
             for member in selectedMembers {

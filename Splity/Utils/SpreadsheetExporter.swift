@@ -4,9 +4,7 @@ enum SpreadsheetExporter {
 
     static func generateCSV(group: Group) -> String {
         let members = group.members.sorted { $0.name < $1.name }
-        let expenses = group.expenses.sorted {
-            ($0.date ?? $0.createdAt) < ($1.date ?? $1.createdAt)
-        }
+        let expenses = group.expenses.sorted { $0.totalAmount > $1.totalAmount }
 
         var lines: [String] = []
 

@@ -15,7 +15,10 @@ enum SettlementCalculator {
         for expense in expenses {
             guard let payer = expense.paidBy else { continue }
 
-            balances[payer, default: 0] += expense.totalAmount
+            // 用 splits 加總作為付款人的 credit：
+            // 若 ceil 分攤使 sum(splits) > totalAmount，差額為付款人收到的福利，balance 仍然歸零
+            let payerCredit = expense.splits.reduce(Decimal(0)) { $0 + ($1.amount) }
+            balances[payer, default: 0] += payerCredit
 
             for split in expense.splits {
                 guard let member = split.member else { continue }
