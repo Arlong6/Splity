@@ -8,9 +8,5 @@
 import Testing
 
 struct SplityTests {
-
-    @Test func example() async throws {
-        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
-    }
-
+    // TODO: Add unit tests
 }
