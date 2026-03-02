@@ -8,6 +8,7 @@ struct GroupDetailView: View {
     @State private var showingAddMember = false
     @State private var showingAddExpense = false
     @State private var showingSettlement = false
+    @State private var showingSpreadsheet = false
     @State private var newMemberName = ""
     @State private var memberDeletionError: String?
     @State private var expenseToDelete: Expense?
@@ -95,6 +96,11 @@ struct GroupDetailView: View {
         .navigationTitle(group.name)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
+                Button { showingSpreadsheet = true } label: {
+                    Label("表格", systemImage: "tablecells")
+                }
+                .disabled(group.expenses.isEmpty)
+
                 Button { showingSettlement = true } label: {
                     Label("結算", systemImage: "arrow.triangle.2.circlepath")
                 }
@@ -114,6 +120,11 @@ struct GroupDetailView: View {
         .sheet(isPresented: $showingSettlement) {
             NavigationStack {
                 SettlementView(group: group)
+            }
+        }
+        .sheet(isPresented: $showingSpreadsheet) {
+            NavigationStack {
+                ExpenseSpreadsheetView(group: group)
             }
         }
         .alert("新增成員", isPresented: $showingAddMember) {
