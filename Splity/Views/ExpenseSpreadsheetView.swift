@@ -38,6 +38,9 @@ struct ExpenseSpreadsheetView: View {
 
     @Query private var allSplits: [ExpenseSplit]
 
+    // 總花費列底色：飽和金黃，黑字對比清晰
+    private let amberColor = Color(red: 1.0, green: 0.80, blue: 0.05)
+
     // Base dimensions at scale = 1
     private let baseItemW: CGFloat   = 80
     private let baseMemberW: CGFloat = 60
@@ -201,11 +204,11 @@ struct ExpenseSpreadsheetView: View {
 
             // ── 總花費 ───────────────────────────────────────────
             HStack(spacing: 0) {
-                lCell("總花費", w: iW, bg: .yellow.opacity(0.4), bold: true)
+                lCell("總花費", w: iW, bg: amberColor, bold: true)
                 ForEach(net.indices, id: \.self) { i in
                     netCell(net[i], w: mW)
                 }
-                dCell(0, w: tW, bg: .yellow.opacity(0.4))
+                dCell(0, w: tW, bg: amberColor)
             }
         }
     }
@@ -259,11 +262,9 @@ struct ExpenseSpreadsheetView: View {
         Text(fmt(value))
             .font(.system(size: fS, weight: .bold))
             .monospacedDigit()
-            .foregroundStyle(value < 0 ? Color(red: 0.0, green: 0.55, blue: 0.27)
-                             : value > 0 ? Color(red: 0.85, green: 0.1, blue: 0.1)
-                             : Color.black)
+            .foregroundStyle(Color.black)
             .frame(width: w, height: rH)
-            .background(Color.yellow.opacity(0.4))
+            .background(amberColor)
             .border(Color(.systemGray4), width: 0.5)
     }
 
