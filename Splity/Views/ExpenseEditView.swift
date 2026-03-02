@@ -59,12 +59,8 @@ struct ExpenseEditView: View {
             } header: {
                 Text("分帳方式")
             } footer: {
-                if viewModel.isEvenSplit, let base = viewModel.evenSplitAmount {
-                    if let upper = viewModel.evenSplitUpperAmount {
-                        Text("每人 \(base, format: .currency(code: currencyCode)) – \(upper, format: .currency(code: currencyCode))")
-                    } else {
-                        Text("每人 \(base, format: .currency(code: currencyCode))")
-                    }
+                if viewModel.isEvenSplit, let amount = viewModel.evenSplitAmount {
+                    Text("每人 \(amount, format: .currency(code: currencyCode))")
                 }
             }
 
