@@ -32,9 +32,12 @@ private struct Row: Identifiable {
 struct ExpenseSpreadsheetView: View {
     let group: Group
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @Environment(FirebaseSharingManager.self) private var sharingManager
 
     @State private var scale: CGFloat = 1.0
     @State private var baseScale: CGFloat = 1.0
+    @State private var syncError: String?
 
     @Query private var allSplits: [ExpenseSplit]
 
@@ -75,7 +78,7 @@ struct ExpenseSpreadsheetView: View {
     }
 
     private var sortedExpenses: [Expense] {
-        group.expenses.sorted { $0.totalAmount > $1.totalAmount }
+        group.expenses.filter { !$0.archived }.sorted { $0.totalAmount > $1.totalAmount }
     }
 
     private var splitLookup: [UUID: [UUID: Decimal]] {
@@ -117,6 +120,15 @@ struct ExpenseSpreadsheetView: View {
         }
     }
 
+    /// 大家要付的小計 per member
+    private var evSubtotals: [Decimal] {
+        let rows = evRows
+        guard !rows.isEmpty else { return Array(repeating: 0, count: sortedMembers.count) }
+        return rows[0].amounts.indices.map { j in
+            rows.reduce(Decimal(0)) { $0 + $1.amounts[j] }
+        }
+    }
+
     /// 總花費 = -netBalance per member
     private var netAmounts: [Decimal] {
         let bal = SettlementCalculator.computeNetBalances(expenses: sortedExpenses)
@@ -133,6 +145,7 @@ struct ExpenseSpreadsheetView: View {
         ScrollView([.horizontal, .vertical]) {
             tableContent
         }
+        .refreshable { await refresh() }
         .simultaneousGesture(
             MagnificationGesture()
                 .onChanged { v in scale = min(max(baseScale * v, 0.4), 3.0) }
@@ -157,6 +170,24 @@ struct ExpenseSpreadsheetView: View {
                     Label("匯出", systemImage: "square.and.arrow.up")
                 }
             }
+        }
+        .task { await refresh() }
+        .alert("同步失敗", isPresented: Binding(
+            get: { syncError != nil },
+            set: { if !$0 { syncError = nil } }
+        )) {
+            Button("好") { syncError = nil }
+        } message: {
+            Text(syncError ?? "")
+        }
+    }
+
+    private func refresh() async {
+        guard group.isShared else { return }
+        do {
+            try await sharingManager.pullChanges(for: group, modelContext: modelContext)
+        } catch {
+            syncError = error.localizedDescription
         }
     }
 
@@ -190,6 +221,16 @@ struct ExpenseSpreadsheetView: View {
                 }
             }
 
+            // ── 大家要付的 小計 ───────────────────────────────────
+            let sub = evSubtotals
+            HStack(spacing: 0) {
+                lCell("個人花費", w: iW, bg: amberColor, bold: true)
+                ForEach(sub.indices, id: \.self) { i in
+                    netCell(sub[i], w: mW)
+                }
+                netCell(sub.reduce(0, +), w: tW)
+            }
+
             // ── 有人先墊 ─────────────────────────────────────────
             secRow("有人先墊")
             ForEach(Array(pu.enumerated()), id: \.element.id) { idx, row in
@@ -204,7 +245,7 @@ struct ExpenseSpreadsheetView: View {
 
             // ── 總花費 ───────────────────────────────────────────
             HStack(spacing: 0) {
-                lCell("總花費", w: iW, bg: amberColor, bold: true)
+                lCell("應付/應收", w: iW, bg: amberColor, bold: true)
                 ForEach(net.indices, id: \.self) { i in
                     netCell(net[i], w: mW)
                 }
@@ -269,9 +310,10 @@ struct ExpenseSpreadsheetView: View {
     }
 
     private func fmt(_ value: Decimal) -> String {
+        let scale = Decimal.currencyFractionDigits(group.baseCurrencyCode)
         var rounded = Decimal()
         var mutable = value
-        NSDecimalRound(&rounded, &mutable, 0, .plain)
+        NSDecimalRound(&rounded, &mutable, scale, .plain)
         return NSDecimalNumber(decimal: rounded).stringValue
     }
 }

@@ -1,0 +1,20 @@
+# Xcode build artifacts
+build/
+DerivedData/
+*.xcuserstate
+*.moved-aside
+
+# User-specific Xcode state
+xcuserdata/
+
+# Firebase config — contains project keys. Ignored by default; if this is a
+# private repo and you want it tracked, add it explicitly: git add -f GoogleService-Info.plist
+GoogleService-Info.plist
+
+# Test / screenshot output
+Screenshots/
+
+# Stray root artifact (empty plist)
+/Info.plist
+
+.DS_Store

@@ -3,10 +3,11 @@ import SwiftData
 
 @Model
 final class ExpenseSplit {
-    var id: UUID
-    var amount: Decimal
+    var id: UUID = UUID()
+    var amount: Decimal = 0
 
     var member: Member?
+
     var expense: Expense?
 
     init(member: Member, amount: Decimal) {

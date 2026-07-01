@@ -1,15 +1,25 @@
 import SwiftUI
+import SwiftData
 
 struct SettlementView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @Environment(FirebaseSharingManager.self) private var sharingManager
     let group: Group
 
+    @State private var mode: SettlementMode = .minimized
+    @State private var syncError: String?
+
     private var settlements: [Settlement] {
-        SettlementCalculator.calculateSettlements(expenses: group.expenses)
+        let expenses = group.expenses.filter { !$0.archived }
+        switch mode {
+        case .minimized: return SettlementCalculator.calculateSettlements(expenses: expenses, currencyCode: currencyCode)
+        case .hub:       return SettlementCalculator.calculateHubSettlements(expenses: expenses, currencyCode: currencyCode)
+        }
     }
 
     private var currencyCode: String {
-        Locale.current.currency?.identifier ?? "TWD"
+        group.baseCurrencyCode
     }
 
     private var totalAmount: Decimal {
@@ -32,6 +42,13 @@ struct SettlementView: View {
                 allSettledView
             } else {
                 VStack(spacing: 16) {
+                    Picker("結算方式", selection: $mode) {
+                        Text("最少轉帳").tag(SettlementMode.minimized)
+                        Text("集中付款").tag(SettlementMode.hub)
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal)
+
                     summaryCard
                     ForEach(settlements) { settlement in
                         settlementCard(settlement)
@@ -44,6 +61,7 @@ struct SettlementView: View {
                 .padding()
             }
         }
+        .refreshable { await refresh() }
         .background(Color(.systemGroupedBackground))
         .navigationTitle("結算")
         .navigationBarTitleDisplayMode(.inline)
@@ -58,6 +76,24 @@ struct SettlementView: View {
                     }
                 }
             }
+        }
+        .task { await refresh() }
+        .alert("同步失敗", isPresented: Binding(
+            get: { syncError != nil },
+            set: { if !$0 { syncError = nil } }
+        )) {
+            Button("好") { syncError = nil }
+        } message: {
+            Text(syncError ?? "")
+        }
+    }
+
+    private func refresh() async {
+        guard group.isShared else { return }
+        do {
+            try await sharingManager.pullChanges(for: group, modelContext: modelContext)
+        } catch {
+            syncError = error.localizedDescription
         }
     }
 

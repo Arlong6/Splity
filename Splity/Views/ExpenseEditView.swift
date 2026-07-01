@@ -6,6 +6,8 @@ struct ExpenseEditView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var viewModel: ExpenseEditViewModel
+    @State private var saveError: String?
+    @State private var showingCurrencyPicker = false
 
     let isEditing: Bool
 
@@ -14,8 +16,14 @@ struct ExpenseEditView: View {
         self.isEditing = expense != nil
     }
 
-    private var currencyCode: String {
-        Locale.current.currency?.identifier ?? "TWD"
+    /// 使用者輸入時的金額顯示幣別（可能與基準幣不同）
+    private var inputCurrencyCode: String {
+        viewModel.selectedCurrencyCode
+    }
+
+    /// 群組基準幣（顯示換算後預覽用）
+    private var baseCurrencyCode: String {
+        viewModel.group.baseCurrencyCode
     }
 
     var body: some View {
@@ -25,10 +33,62 @@ struct ExpenseEditView: View {
                 TextField("品項名稱", text: $viewModel.title)
 
                 HStack {
-                    Text(currencyCode)
+                    Button {
+                        showingCurrencyPicker = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(CurrencyService.flag(for: inputCurrencyCode))
+                            Text(inputCurrencyCode)
+                                .fontWeight(.medium)
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.caption2)
+                        }
                         .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+
                     TextField("金額", text: $viewModel.totalAmountString)
                         .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                }
+
+                if viewModel.isForeign {
+                    HStack {
+                        Text("匯率")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        if viewModel.isFetchingRate {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("取得中…")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        } else if let rate = viewModel.lockedRate {
+                            Text("1 \(inputCurrencyCode) = \(formatRate(rate)) \(baseCurrencyCode)")
+                                .font(.callout)
+                                .foregroundStyle(.primary)
+                                .monospacedDigit()
+                        } else if viewModel.rateFetchFailed {
+                            Text("無法取得匯率")
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                        }
+                    }
+                    if !viewModel.isFetchingRate, viewModel.lockedRate != nil {
+                        Text("以建立當下牌價鎖定（exchangerate-api.com）")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                    if let converted = viewModel.convertedTotal {
+                        HStack {
+                            Text("換算後")
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text(converted, format: .currency(code: baseCurrencyCode))
+                                .font(.callout.bold())
+                                .foregroundStyle(.indigo)
+                        }
+                    }
                 }
 
                 Picker("誰先付", selection: $viewModel.selectedPayer) {
@@ -60,7 +120,7 @@ struct ExpenseEditView: View {
                 Text("分帳方式")
             } footer: {
                 if viewModel.isEvenSplit, let amount = viewModel.evenSplitAmount {
-                    Text("每人 \(amount, format: .currency(code: currencyCode))")
+                    Text("每人 \(amount, format: .currency(code: inputCurrencyCode))")
                 }
             }
 
@@ -104,9 +164,9 @@ struct ExpenseEditView: View {
                         let total = viewModel.totalAmount ?? 0
                         let sumColor: Color = sum == total ? .green
                             : viewModel.hasAnyCustomInput ? .red : .secondary
-                        Text(sum, format: .currency(code: currencyCode))
+                        Text(sum, format: .currency(code: inputCurrencyCode))
                             .foregroundStyle(sumColor)
-                        Text("/ \(total, format: .currency(code: currencyCode))")
+                        Text("/ \(total, format: .currency(code: inputCurrencyCode))")
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -114,18 +174,52 @@ struct ExpenseEditView: View {
         }
         .navigationTitle(isEditing ? "編輯花費" : "新增花費")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showingCurrencyPicker) {
+            CurrencyPickerView(selection: Binding(
+                get: { viewModel.selectedCurrencyCode },
+                set: { newCode in
+                    viewModel.selectedCurrencyCode = newCode
+                    viewModel.lockedRate = nil
+                    viewModel.rateFetchFailed = false
+                    Task { await viewModel.refreshExchangeRate() }
+                }
+            ))
+        }
+        .task {
+            // 編輯既有外幣花費也補抓最新 5 日低（不會覆蓋已存在的鎖定值，但首次進入空值時會帶）
+            if viewModel.isForeign && viewModel.lockedRate == nil {
+                await viewModel.refreshExchangeRate()
+            }
+        }
+        .alert("儲存失敗", isPresented: Binding(
+            get: { saveError != nil },
+            set: { if !$0 { saveError = nil } }
+        )) {
+            Button("好") { saveError = nil }
+        } message: {
+            Text(saveError ?? "")
+        }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("取消") { dismiss() }
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("儲存") {
-                    if viewModel.save(modelContext: modelContext) {
+                    if let error = viewModel.save(modelContext: modelContext) {
+                        saveError = error
+                    } else {
                         dismiss()
                     }
                 }
                 .disabled(!viewModel.isValid)
             }
         }
+    }
+
+    private func formatRate(_ rate: Decimal) -> String {
+        var rounded = Decimal()
+        var mutable = rate
+        NSDecimalRound(&rounded, &mutable, 6, .plain)
+        return NSDecimalNumber(decimal: rounded).stringValue
     }
 }

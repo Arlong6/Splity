@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SplashView: View {
+    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
     @State private var iconScale: CGFloat = 0.4
     @State private var iconOpacity: Double = 0
     @State private var titleOffset: CGFloat = 20
@@ -10,8 +11,13 @@ struct SplashView: View {
 
     var body: some View {
         if isFinished {
-            GroupListView()
-                .transition(.opacity)
+            if hasSeenOnboarding {
+                GroupListView()
+                    .transition(.opacity)
+            } else {
+                OnboardingView()
+                    .transition(.opacity)
+            }
         } else {
             splashContent
                 .transition(.opacity)
