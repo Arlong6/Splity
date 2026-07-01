@@ -31,7 +31,7 @@ final class FirebaseSharingManager {
         member.claimedByUid = uid
         try? modelContext.save()
         if group.isShared {
-            try? await pushGroupMeta(for: group)
+            try? await pushMemberClaim(member, uid: uid, in: group)
             await logActivity(for: group, action: .joinedGroup, target: member.name)
         }
     }
@@ -227,6 +227,35 @@ final class FirebaseSharingManager {
             "baseCurrencyCode": group.baseCurrencyCode,
             "members": members
         ])
+    }
+
+    /// 原子認領成員：用 transaction 只改「這一位」成員的 claimedByUid，避免兩人同時認領
+    /// 不同成員時整個 members 陣列覆寫互蓋。找不到該成員時 upsert（支援「新增成員後即認領」）。
+    func pushMemberClaim(_ member: Member, uid: String, in group: Group) async throws {
+        guard let firestoreId = group.firestoreGroupId else { return }
+        try await signInAnonymously()
+        let memberIdStr = member.id.uuidString
+        let name = member.name
+        let groupRef = db.collection("groups").document(firestoreId)
+
+        _ = try await db.runTransaction { (txn, errorPointer) -> Any? in
+            let snap: DocumentSnapshot
+            do {
+                snap = try txn.getDocument(groupRef)
+            } catch let err as NSError {
+                errorPointer?.pointee = err
+                return nil
+            }
+            guard snap.exists else { return nil }
+            var members = (snap.data()?["members"] as? [[String: Any]]) ?? []
+            if let idx = members.firstIndex(where: { ($0["id"] as? String) == memberIdStr }) {
+                members[idx]["claimedByUid"] = uid
+            } else {
+                members.append(["id": memberIdStr, "name": name, "claimedByUid": uid])
+            }
+            txn.updateData(["members": members], forDocument: groupRef)
+            return nil
+        }
     }
 
     /// One-shot pull（雙讀：group 文件 + expenses 子集合）into local SwiftData.
