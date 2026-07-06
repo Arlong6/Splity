@@ -72,16 +72,25 @@ final class FirebaseSharingManager {
             return existingCode
         }
 
-        let code = generateCode()
+        // 產生不重複的邀請碼：碰撞極罕見，仍檢查避免劫持既有碼（配合 rules update:false 雙保險）
+        var code = generateCode()
+        for _ in 0..<5 {
+            let existing = try? await db.collection("inviteCodes").document(code).getDocument()
+            if existing?.exists != true { break }
+            code = generateCode()
+        }
+
         let groupData = serializeGroup(group, ownerId: userId, inviteCode: code)
-
-        let docRef = try await db.collection("groups").addDocument(data: groupData)
-
-        try await db.collection("inviteCodes").document(code).setData([
+        // 原子寫入 group 文件 + 邀請碼，任一失敗都不留孤兒文件
+        let docRef = db.collection("groups").document()
+        let batch = db.batch()
+        batch.setData(groupData, forDocument: docRef)
+        batch.setData([
             "groupId": docRef.documentID,
             "groupName": group.name,
             "createdAt": FieldValue.serverTimestamp()
-        ])
+        ], forDocument: db.collection("inviteCodes").document(code))
+        try await batch.commit()
 
         await MainActor.run {
             group.firestoreGroupId = docRef.documentID
@@ -434,7 +443,9 @@ final class FirebaseSharingManager {
                         for split in splitsCopy { modelContext.delete(split) }
                         appendSplits(from: eData, to: existing, memberMap: memberMap, modelContext: modelContext)
                     }
-                } else if let payer {
+                } else {
+                    // 即使遠端 payerId 對不到本地成員也保留花費（paidBy 暫為 nil，結算會略過），
+                    // 待成員同步後由後續 merge 補上 paidBy，避免靜默丟失遠端花費。
                     let expense = Expense(title: title, totalAmount: total, paidBy: payer)
                     expense.id = uuid
                     expense.archived = archived

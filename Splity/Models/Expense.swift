@@ -30,7 +30,7 @@ final class Expense {
 
     var isForeignCurrency: Bool { originalCurrencyCode != nil }
 
-    init(title: String, totalAmount: Decimal, paidBy: Member, date: Date? = nil, note: String? = nil) {
+    init(title: String, totalAmount: Decimal, paidBy: Member?, date: Date? = nil, note: String? = nil) {
         self.id = UUID()
         self.title = title
         self.totalAmount = totalAmount

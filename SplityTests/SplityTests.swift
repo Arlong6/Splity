@@ -534,3 +534,32 @@ struct CSVInjectionTests {
         #expect(!csv.contains(",=HYPERLINK(1)"))
     }
 }
+
+// MARK: - 付款人為 nil 的花費（遠端 payer 尚未同步）
+
+struct NilPayerExpenseTests {
+
+    /// 遠端 merge 找不到 payer 時保留花費（paidBy=nil）而非丟棄；結算應安全略過該筆、不崩潰。
+    @Test("付款人為 nil 的花費不計入結算且不崩潰")
+    func nilPayerSkippedSafely() throws {
+        let container = try makeContainer()
+        let ctx = ModelContext(container)
+
+        let a = Member(name: "A"); ctx.insert(a)
+        let b = Member(name: "B"); ctx.insert(b)
+
+        let e1 = makeExpense(title: "正常", total: 100, payer: a, splits: [(a, 50), (b, 50)], ctx: ctx)
+
+        // 付款人為 nil（模擬遠端 payerId 尚未對應到本地成員）
+        let e2 = Expense(title: "孤兒", totalAmount: 30, paidBy: nil)
+        ctx.insert(e2)
+        let s2 = ExpenseSplit(member: b, amount: 30); ctx.insert(s2); e2.splits.append(s2)
+
+        let balances = SettlementCalculator.computeNetBalances(expenses: [e1, e2])
+
+        // e2 因 paidBy nil 被略過，只算 e1
+        #expect(balances[a] == 50)
+        #expect(balances[b] == -50)
+        #expect(balances.values.reduce(Decimal(0), +) == 0)
+    }
+}

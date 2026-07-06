@@ -309,14 +309,14 @@ struct GroupDetailView: View {
                 memberDeletionError = "\(member.name) 已綁定身份，無法刪除。"
                 return
             }
+            // 含「已封存（軟刪除）」花費一起檢查：否則刪掉此成員後，日後從歷史還原該花費
+            // 會因 paidBy 被 nullify、splits 被 cascade 刪除而資料毀損。
             let hasExpenses = group.expenses.contains { expense in
-                !expense.archived && (
-                    expense.paidBy == member ||
-                    expense.splits.contains { $0.member == member }
-                )
+                expense.paidBy == member ||
+                expense.splits.contains { $0.member == member }
             }
             if hasExpenses {
-                memberDeletionError = "\(member.name) 有關聯的花費紀錄，無法刪除。請先刪除相關花費。"
+                memberDeletionError = "\(member.name) 有關聯的花費紀錄（含已刪除），無法刪除。請先永久刪除相關花費。"
                 return
             }
             removedNames.append(member.name)
