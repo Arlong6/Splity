@@ -118,8 +118,9 @@ final class ExpenseEditViewModel {
             // 既有 splits 是基準幣；若是外幣花費需要除以匯率把 customAmounts 還原成原幣
             let restoreRate: Decimal = expense.isForeignCurrency ? (expense.exchangeRate ?? 1) : 1
             let amounts = expense.splits.compactMap { $0.amount }
-            let allEqual = !amounts.isEmpty && amounts.allSatisfy { $0 == amounts.first }
-            isEvenSplit = allEqual
+            // 優先用明確保存的拆帳模式；舊資料（nil）才退回以「金額是否相等」推斷
+            let inferredEven = !amounts.isEmpty && amounts.allSatisfy { $0 == amounts.first }
+            isEvenSplit = expense.isEvenSplit ?? inferredEven
 
             for split in expense.splits {
                 if let member = split.member {
@@ -228,6 +229,7 @@ final class ExpenseEditViewModel {
             expense.splits.append(contentsOf: splits)
             savedExpense = expense
         }
+        savedExpense.isEvenSplit = isEvenSplit
 
         do {
             try modelContext.save()

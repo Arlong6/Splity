@@ -28,6 +28,10 @@ final class Expense {
     /// 原幣 → 基準幣的匯率。`totalAmount = originalAmount × exchangeRate`。
     var exchangeRate: Decimal? = nil
 
+    /// 拆帳模式：true=均分、false=自訂。nil=舊資料未記錄（重新編輯時退回以「金額是否相等」推斷）。
+    /// 明確保存可避免「自訂但金額剛好相等」被誤判為均分。
+    var isEvenSplit: Bool? = nil
+
     var isForeignCurrency: Bool { originalCurrencyCode != nil }
 
     init(title: String, totalAmount: Decimal, paidBy: Member?, date: Date? = nil, note: String? = nil) {

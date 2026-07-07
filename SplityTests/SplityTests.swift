@@ -563,3 +563,40 @@ struct NilPayerExpenseTests {
         #expect(balances.values.reduce(Decimal(0), +) == 0)
     }
 }
+
+// MARK: - 拆帳模式持久化（自訂 vs 均分）
+
+struct SplitModePersistenceTests {
+
+    private func makeGroupWithTwo(_ ctx: ModelContext) -> (Group, Member, Member) {
+        let group = Group(name: "G"); ctx.insert(group)
+        let a = Member(name: "A"); ctx.insert(a); group.members.append(a)
+        let b = Member(name: "B"); ctx.insert(b); group.members.append(b)
+        return (group, a, b)
+    }
+
+    @Test("明確保存的自訂模式不會被『金額剛好相等』誤判為均分")
+    func explicitCustomNotMisclassified() throws {
+        let container = try makeContainer()
+        let ctx = ModelContext(container)
+        let (group, a, b) = makeGroupWithTwo(ctx)
+        // 自訂拆帳，但金額剛好相等（過去會被 allEqual 誤判為均分）
+        let e = makeExpense(title: "x", total: 100, payer: a, splits: [(a, 50), (b, 50)], ctx: ctx)
+        e.isEvenSplit = false
+
+        let vm = ExpenseEditViewModel(group: group, expense: e)
+        #expect(vm.isEvenSplit == false)
+    }
+
+    @Test("舊資料（isEvenSplit=nil）退回以金額是否相等推斷")
+    func nilFallsBackToInference() throws {
+        let container = try makeContainer()
+        let ctx = ModelContext(container)
+        let (group, a, b) = makeGroupWithTwo(ctx)
+        let e = makeExpense(title: "x", total: 100, payer: a, splits: [(a, 50), (b, 50)], ctx: ctx)
+        e.isEvenSplit = nil // 舊資料未記錄
+
+        let vm = ExpenseEditViewModel(group: group, expense: e)
+        #expect(vm.isEvenSplit == true) // 金額相等 → 推斷為均分（沿用舊行為）
+    }
+}

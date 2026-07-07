@@ -28,9 +28,19 @@ enum SplitySchemaV1: VersionedSchema {
     }
 }
 
+/// v2：Expense 新增可選欄位 `isEvenSplit`（拆帳模式）。相對 v1 為純附加 → lightweight 遷移。
+enum SplitySchemaV2: VersionedSchema {
+    static var versionIdentifier = Schema.Version(2, 0, 0)
+    static var models: [any PersistentModel.Type] {
+        [Group.self, Member.self, Expense.self, ExpenseSplit.self, HistoryRecord.self]
+    }
+}
+
 enum SplityMigrationPlan: SchemaMigrationPlan {
-    static var schemas: [any VersionedSchema.Type] { [SplitySchemaV1.self] }
-    static var stages: [MigrationStage] { [] }
+    static var schemas: [any VersionedSchema.Type] { [SplitySchemaV1.self, SplitySchemaV2.self] }
+    static var stages: [MigrationStage] {
+        [.lightweight(fromVersion: SplitySchemaV1.self, toVersion: SplitySchemaV2.self)]
+    }
 }
 
 @main
@@ -53,7 +63,7 @@ struct SplityApp: App {
             UserDefaults.standard.removePersistentDomain(forName: Bundle.main.bundleIdentifier ?? "")
         }
 
-        let schema = Schema(versionedSchema: SplitySchemaV1.self)
+        let schema = Schema(versionedSchema: SplitySchemaV2.self)
         // Detect unit tests (xctest bundle injected) or UI tests (UserDefaults arg set by test helpers)
         let isTestEnvironment = Bundle.allBundles.contains { $0.bundleURL.pathExtension == "xctest" }
             || UserDefaults.standard.bool(forKey: "IS_UI_TESTING")
