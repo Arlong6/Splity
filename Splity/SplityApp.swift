@@ -18,30 +18,10 @@ final class SplityAppCheckProviderFactory: NSObject, AppCheckProviderFactory {
     }
 }
 
-/// SwiftData 版本化 schema 基準（v1 = 目前的 model 形狀）。
-/// 未來若要改 model，新增 `SplitySchemaV2` 並在 `SplityMigrationPlan.stages` 加入明確的
-/// `MigrationStage`（lightweight 或 custom），而非依賴隱式推斷（非輕量變更會失敗）。
-enum SplitySchemaV1: VersionedSchema {
-    static var versionIdentifier = Schema.Version(1, 0, 0)
-    static var models: [any PersistentModel.Type] {
-        [Group.self, Member.self, Expense.self, ExpenseSplit.self, HistoryRecord.self]
-    }
-}
-
-/// v2：Expense 新增可選欄位 `isEvenSplit`（拆帳模式）。相對 v1 為純附加 → lightweight 遷移。
-enum SplitySchemaV2: VersionedSchema {
-    static var versionIdentifier = Schema.Version(2, 0, 0)
-    static var models: [any PersistentModel.Type] {
-        [Group.self, Member.self, Expense.self, ExpenseSplit.self, HistoryRecord.self]
-    }
-}
-
-enum SplityMigrationPlan: SchemaMigrationPlan {
-    static var schemas: [any VersionedSchema.Type] { [SplitySchemaV1.self, SplitySchemaV2.self] }
-    static var stages: [MigrationStage] {
-        [.lightweight(fromVersion: SplitySchemaV1.self, toVersion: SplitySchemaV2.self)]
-    }
-}
+// 註：不使用 SchemaMigrationPlan/VersionedSchema。先前用 V1/V2 兩個版本化 schema 但兩者
+// 指向同一批 model 類別 → checksum 相同 → SwiftData 建立遷移階段時擲出
+// "Duplicate version checksums detected" 並在啟動時崩潰（見 1.7.0 上線後的閃退）。
+// `isEvenSplit` 這種「新增可選欄位」屬於 SwiftData 能自動處理的輕量遷移，用單一 Schema 即可。
 
 @main
 struct SplityApp: App {
@@ -63,7 +43,7 @@ struct SplityApp: App {
             UserDefaults.standard.removePersistentDomain(forName: Bundle.main.bundleIdentifier ?? "")
         }
 
-        let schema = Schema(versionedSchema: SplitySchemaV2.self)
+        let schema = Schema([Group.self, Member.self, Expense.self, ExpenseSplit.self, HistoryRecord.self])
         // Detect unit tests (xctest bundle injected) or UI tests (UserDefaults arg set by test helpers)
         let isTestEnvironment = Bundle.allBundles.contains { $0.bundleURL.pathExtension == "xctest" }
             || UserDefaults.standard.bool(forKey: "IS_UI_TESTING")
@@ -89,7 +69,7 @@ struct SplityApp: App {
             let storeURL = URL.applicationSupportDirectory.appendingPathComponent("default.store")
             let config = ModelConfiguration(schema: schema, cloudKitDatabase: .none)
             do {
-                container = try ModelContainer(for: schema, migrationPlan: SplityMigrationPlan.self, configurations: config)
+                container = try ModelContainer(for: schema, configurations: config)
             } catch {
                 let stamp = Int(Date().timeIntervalSince1970)
                 for ext in ["", "-wal", "-shm"] {
@@ -99,7 +79,7 @@ struct SplityApp: App {
                     try? FileManager.default.moveItem(at: original, to: backup)
                 }
                 // 備份後以全新 store 重試；仍失敗才退回記憶體容器（原始資料仍在 .bak 備份）
-                container = (try? ModelContainer(for: schema, migrationPlan: SplityMigrationPlan.self, configurations: config))
+                container = (try? ModelContainer(for: schema, configurations: config))
                     ?? (try! ModelContainer(
                         for: Group.self, Member.self, Expense.self, ExpenseSplit.self, HistoryRecord.self,
                         configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
