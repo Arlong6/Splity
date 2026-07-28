@@ -34,13 +34,13 @@ final class SplityScreenshotTests: XCTestCase {
     }
 
     private func createGroup(_ name: String) {
+        // 新增帳目已從 Alert 改為 sheet(名稱輸入 + 幣別選擇 + 右上「建立」)
         app.buttons["新增帳目"].tap()
-        let alert = app.alerts["新增帳目"]
-        XCTAssertTrue(alert.waitForExistence(timeout: 10))
-        let field = alert.textFields["帳目名稱"]
+        let field = app.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "找不到帳目名稱輸入框(sheet 未出現?)")
         field.tap()
         field.typeText(name)
-        alert.buttons["建立"].tap()
+        app.buttons["建立"].tap()
         XCTAssertTrue(app.staticTexts[name].waitForExistence(timeout: 10))
     }
 
@@ -168,4 +168,5 @@ final class SplityScreenshotTests: XCTestCase {
         sleep(2)
         screenshot("09_spreadsheet")
     }
+
 }

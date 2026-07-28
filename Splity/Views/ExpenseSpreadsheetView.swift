@@ -27,6 +27,7 @@ private struct Row: Identifiable {
     let total: Decimal
 }
 
+
 // MARK: - View
 
 struct ExpenseSpreadsheetView: View {
@@ -38,6 +39,9 @@ struct ExpenseSpreadsheetView: View {
     @State private var scale: CGFloat = 1.0
     @State private var baseScale: CGFloat = 1.0
     @State private var syncError: String?
+    /// 捲動位移(相對靜止位置):靜止 = (0,0),往下/右捲為負。由 onScrollGeometryChange 供值,
+    /// 已扣除 contentInsets,無需再猜安全區基準。
+    @State private var scrollOffset: CGPoint = .zero
 
     @Query private var allSplits: [ExpenseSplit]
 
@@ -75,6 +79,12 @@ struct ExpenseSpreadsheetView: View {
 
     private var sortedMembers: [Member] {
         group.members.sorted { $0.name < $1.name }
+    }
+
+    /// 目前使用者認領的成員在 sortedMembers 的欄位索引(整欄高亮用);未認領為 nil
+    private var myColumnIndex: Int? {
+        guard let me = sharingManager.claimedMember(in: group) else { return nil }
+        return sortedMembers.firstIndex { $0.id == me.id }
     }
 
     private var sortedExpenses: [Expense] {
@@ -142,15 +152,31 @@ struct ExpenseSpreadsheetView: View {
     // MARK: - Body
 
     var body: some View {
-        ScrollView([.horizontal, .vertical]) {
-            tableContent
+        GeometryReader { geo in
+            ScrollView([.horizontal, .vertical]) {
+                // 內容比視口小時 2D ScrollView 會置中;強制至少填滿視口讓表格固定靠左上,
+                // 凍結覆蓋層(以左上為錨點)才能與內容對齊。
+                tableContent
+                    .frame(minWidth: geo.size.width, minHeight: geo.size.height, alignment: .topLeading)
+            }
+            .onScrollGeometryChange(for: CGPoint.self) { g in
+                // 相對靜止位置的位移:contentOffset 在靜止時 = -adjustedInset,兩者相加歸零
+                CGPoint(x: -(g.contentOffset.x + g.contentInsets.leading),
+                        y: -(g.contentOffset.y + g.contentInsets.top))
+            } action: { _, new in
+                scrollOffset = new
+            }
+            .refreshable { await refresh() }
+            .simultaneousGesture(
+                MagnificationGesture()
+                    .onChanged { v in scale = min(max(baseScale * v, 0.4), 3.0) }
+                    .onEnded   { _ in baseScale = scale }
+            )
+            // 凍結窗格:品項欄(橫向捲動時固定)與表頭列(縱向捲動時固定)。
+            // 純視覺複本、不攔截手勢;拖曳/縮放/下拉更新照常作用在底下的 ScrollView。
+            .overlay(alignment: .topLeading) { pinnedColumn(viewportHeight: geo.size.height) }
+            .overlay(alignment: .topLeading) { pinnedHeader(viewportWidth: geo.size.width) }
         }
-        .refreshable { await refresh() }
-        .simultaneousGesture(
-            MagnificationGesture()
-                .onChanged { v in scale = min(max(baseScale * v, 0.4), 3.0) }
-                .onEnded   { _ in baseScale = scale }
-        )
         .navigationTitle("分帳明細")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -203,11 +229,7 @@ struct ExpenseSpreadsheetView: View {
         VStack(alignment: .leading, spacing: 0) {
 
             // ── Header ──────────────────────────────────────────
-            HStack(spacing: 0) {
-                hCell("品項", w: iW)
-                ForEach(ms, id: \.persistentModelID) { m in hCell(m.name, w: mW) }
-                hCell("總價", w: tW)
-            }
+            headerRow
 
             // ── 大家要付的 ───────────────────────────────────────
             secRow("大家要付的")
@@ -215,7 +237,7 @@ struct ExpenseSpreadsheetView: View {
                 HStack(spacing: 0) {
                     lCell(row.title, w: iW, bg: rowBg(idx))
                     ForEach(row.amounts.indices, id: \.self) { j in
-                        dCell(row.amounts[j], w: mW, bg: rowBg(idx))
+                        dCell(row.amounts[j], w: mW, bg: rowBg(idx), highlight: j == myColumnIndex)
                     }
                     dCell(row.total, w: tW, bg: rowBg(idx))
                 }
@@ -226,7 +248,7 @@ struct ExpenseSpreadsheetView: View {
             HStack(spacing: 0) {
                 lCell("個人花費", w: iW, bg: amberColor, bold: true)
                 ForEach(sub.indices, id: \.self) { i in
-                    netCell(sub[i], w: mW)
+                    netCell(sub[i], w: mW, highlight: i == myColumnIndex)
                 }
                 netCell(sub.reduce(0, +), w: tW)
             }
@@ -237,7 +259,7 @@ struct ExpenseSpreadsheetView: View {
                 HStack(spacing: 0) {
                     lCell(row.title, w: iW, bg: rowBg(idx))
                     ForEach(row.amounts.indices, id: \.self) { j in
-                        dCell(row.amounts[j], w: mW, bg: rowBg(idx))
+                        dCell(row.amounts[j], w: mW, bg: rowBg(idx), highlight: j == myColumnIndex)
                     }
                     dCell(row.total, w: tW, bg: rowBg(idx))
                 }
@@ -247,23 +269,93 @@ struct ExpenseSpreadsheetView: View {
             HStack(spacing: 0) {
                 lCell("應付/應收", w: iW, bg: amberColor, bold: true)
                 ForEach(net.indices, id: \.self) { i in
-                    netCell(net[i], w: mW)
+                    netCell(net[i], w: mW, highlight: i == myColumnIndex)
                 }
                 dCell(0, w: tW, bg: amberColor)
             }
         }
     }
 
+    /// 表頭列(內容與凍結覆蓋共用同一份,確保欄寬對齊)
+    private var headerRow: some View {
+        HStack(spacing: 0) {
+            hCell("品項", w: iW)
+            ForEach(Array(sortedMembers.enumerated()), id: \.element.persistentModelID) { i, m in
+                hCell(m.name, w: mW, highlight: i == myColumnIndex)
+            }
+            hCell("總價", w: tW)
+        }
+    }
+
+    // MARK: - Frozen panes(凍結表頭/品項欄)
+
+    /// 品項欄複本:縱向跟著內容捲、橫向釘在左緣(往左過拉時跟隨內容)。
+    private func pinnedColumn(viewportHeight: CGFloat) -> some View {
+        ZStack(alignment: .topLeading) {
+            leftColumn
+                .offset(x: max(scrollOffset.x, 0), y: scrollOffset.y)
+        }
+        .frame(width: iW + max(scrollOffset.x, 0), height: viewportHeight, alignment: .topLeading)
+        .clipped()
+        .shadow(color: .black.opacity(scrollOffset.x < -1 ? 0.18 : 0), radius: 3, x: 2, y: 0)
+        .allowsHitTesting(false)
+    }
+
+    /// 表頭列複本:橫向跟著內容捲、縱向釘在頂端(左上角「品項」雙向釘住)。
+    private func pinnedHeader(viewportWidth: CGFloat) -> some View {
+        ZStack(alignment: .topLeading) {
+            headerRow
+                .offset(x: scrollOffset.x, y: max(scrollOffset.y, 0))
+            hCell("品項", w: iW)
+                .offset(x: max(scrollOffset.x, 0), y: max(scrollOffset.y, 0))
+        }
+        .frame(width: viewportWidth, height: rH + max(scrollOffset.y, 0), alignment: .topLeading)
+        .clipped()
+        .shadow(color: .black.opacity(scrollOffset.y < -1 ? 0.18 : 0), radius: 3, x: 0, y: 2)
+        .allowsHitTesting(false)
+    }
+
+    /// 品項欄的完整縱向序列,列高與 tableContent 一一對應(皆為 rH)。
+    private var leftColumn: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            hCell("品項", w: iW)
+            secLeftCell("大家要付的")
+            ForEach(Array(evRows.enumerated()), id: \.element.id) { idx, row in
+                lCell(row.title, w: iW, bg: rowBg(idx))
+            }
+            lCell("個人花費", w: iW, bg: amberColor, bold: true)
+            secLeftCell("有人先墊")
+            ForEach(Array(puRows.enumerated()), id: \.element.id) { idx, row in
+                lCell(row.title, w: iW, bg: rowBg(idx))
+            }
+            lCell("應付/應收", w: iW, bg: amberColor, bold: true)
+        }
+    }
+
+    /// 凍結欄裡的段落標題切片(需不透明,否則底下捲動內容會透出)
+    private func secLeftCell(_ label: String) -> some View {
+        Text(label)
+            .font(.system(size: fS, weight: .bold))
+            .foregroundStyle(Color.indigo)
+            .padding(.leading, 8)
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
+            .frame(width: iW, height: rH, alignment: .leading)
+            .background(Color.indigo.opacity(0.08))
+            .background(Color(.systemBackground))
+            .border(Color(.systemGray4), width: 0.5)
+    }
+
     // MARK: - Cell builders
 
-    private func hCell(_ text: String, w: CGFloat) -> some View {
+    private func hCell(_ text: String, w: CGFloat, highlight: Bool = false) -> some View {
         Text(text)
             .font(.system(size: fS, weight: .bold))
             .foregroundStyle(.white)
             .lineLimit(1)
             .minimumScaleFactor(0.5)
             .frame(width: w, height: rH)
-            .background(Color.indigo)
+            .background(highlight ? Color.teal : Color.indigo)
             .border(Color.indigo.opacity(0.5), width: 0.5)
     }
 
@@ -289,22 +381,24 @@ struct ExpenseSpreadsheetView: View {
             .border(Color(.systemGray4), width: 0.5)
     }
 
-    private func dCell(_ value: Decimal, w: CGFloat, bg: Color) -> some View {
+    private func dCell(_ value: Decimal, w: CGFloat, bg: Color, highlight: Bool = false) -> some View {
         Text(fmt(value))
-            .font(.system(size: fS, weight: .semibold))
+            .font(.system(size: fS, weight: highlight ? .bold : .semibold))
             .foregroundStyle(Color.black)
             .monospacedDigit()
             .frame(width: w, height: rH)
+            .background(highlight ? Color.teal.opacity(0.18) : Color.clear)
             .background(bg)
             .border(Color(.systemGray4), width: 0.5)
     }
 
-    private func netCell(_ value: Decimal, w: CGFloat) -> some View {
+    private func netCell(_ value: Decimal, w: CGFloat, highlight: Bool = false) -> some View {
         Text(fmt(value))
-            .font(.system(size: fS, weight: .bold))
+            .font(.system(size: fS, weight: highlight ? .heavy : .bold))
             .monospacedDigit()
             .foregroundStyle(Color.black)
             .frame(width: w, height: rH)
+            .background(highlight ? Color.teal.opacity(0.25) : Color.clear)
             .background(amberColor)
             .border(Color(.systemGray4), width: 0.5)
     }
