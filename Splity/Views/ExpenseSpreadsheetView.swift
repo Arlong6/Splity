@@ -28,6 +28,56 @@ private struct Row: Identifiable {
 }
 
 
+// MARK: - Frozen-pane scroll model
+
+/// 捲動位移模型:靜止=(0,0),往下/右捲為負。用 @Observable 而非 @State——
+/// 只有兩個凍結覆蓋層的 body 讀它,捲動每一格畫面只重繪覆蓋層,
+/// 整張表格與資料運算完全不重跑(否則手機上大表會明顯卡頓)。
+@Observable
+private final class SpreadsheetScrollModel {
+    var offset: CGPoint = .zero
+}
+
+/// 品項欄凍結覆蓋:縱向跟著內容捲、橫向釘在左緣。獨立 View 隔離 offset 觀察範圍。
+private struct PinnedColumnOverlay<Content: View>: View {
+    let model: SpreadsheetScrollModel
+    let columnWidth: CGFloat
+    let viewportHeight: CGFloat
+    let content: Content
+
+    var body: some View {
+        let o = model.offset
+        ZStack(alignment: .topLeading) {
+            content.offset(x: max(o.x, 0), y: o.y)
+        }
+        .frame(width: columnWidth + max(o.x, 0), height: viewportHeight, alignment: .topLeading)
+        .clipped()
+        .shadow(color: .black.opacity(o.x < -1 ? 0.18 : 0), radius: 3, x: 2, y: 0)
+        .allowsHitTesting(false)
+    }
+}
+
+/// 表頭列凍結覆蓋:橫向跟著內容捲、縱向釘在頂端(左上角「品項」雙向釘住)。
+private struct PinnedHeaderOverlay<Content: View, Corner: View>: View {
+    let model: SpreadsheetScrollModel
+    let rowHeight: CGFloat
+    let viewportWidth: CGFloat
+    let content: Content
+    let corner: Corner
+
+    var body: some View {
+        let o = model.offset
+        ZStack(alignment: .topLeading) {
+            content.offset(x: o.x, y: max(o.y, 0))
+            corner.offset(x: max(o.x, 0), y: max(o.y, 0))
+        }
+        .frame(width: viewportWidth, height: rowHeight + max(o.y, 0), alignment: .topLeading)
+        .clipped()
+        .shadow(color: .black.opacity(o.y < -1 ? 0.18 : 0), radius: 3, x: 0, y: 2)
+        .allowsHitTesting(false)
+    }
+}
+
 // MARK: - View
 
 struct ExpenseSpreadsheetView: View {
@@ -39,11 +89,8 @@ struct ExpenseSpreadsheetView: View {
     @State private var scale: CGFloat = 1.0
     @State private var baseScale: CGFloat = 1.0
     @State private var syncError: String?
-    /// 捲動位移(相對靜止位置):靜止 = (0,0),往下/右捲為負。由 onScrollGeometryChange 供值,
-    /// 已扣除 contentInsets,無需再猜安全區基準。
-    @State private var scrollOffset: CGPoint = .zero
-
-    @Query private var allSplits: [ExpenseSplit]
+    /// 注意:父 view body 不可讀取 scrollModel.offset(會把整張表捲進每格重繪)。
+    @State private var scrollModel = SpreadsheetScrollModel()
 
     // 總花費列底色：飽和金黃，黑字對比清晰
     private let amberColor = Color(red: 1.0, green: 0.80, blue: 0.05)
@@ -91,25 +138,19 @@ struct ExpenseSpreadsheetView: View {
         group.expenses.filter { !$0.archived }.sorted { $0.totalAmount > $1.totalAmount }
     }
 
-    private var splitLookup: [UUID: [UUID: Decimal]] {
-        var map: [UUID: [UUID: Decimal]] = [:]
-        for split in allSplits {
-            guard let expID = split.expense?.id,
-                  let memID = split.member?.id else { continue }
-            map[expID, default: [:]][memID] = split.amount
-        }
-        return map
-    }
-
-    /// 大家要付的
+    /// 大家要付的(直接讀 expense.splits 關聯;先前用無 predicate 的全域 @Query 掃整個資料庫,
+    /// 群組一多就是效能地雷)
     private var evRows: [Row] {
-        let ms  = sortedMembers
-        let lkp = splitLookup
+        let ms = sortedMembers
         return sortedExpenses.map { exp in
-            Row(
+            let byMember = Dictionary(
+                exp.splits.compactMap { s in s.member.map { ($0.id, s.amount) } },
+                uniquingKeysWith: { first, _ in first }
+            )
+            return Row(
                 id: exp.id,
                 title: exp.title,
-                amounts: ms.map { m in lkp[exp.id]?[m.id] ?? 0 },
+                amounts: ms.map { byMember[$0.id] ?? 0 },
                 total: exp.totalAmount
             )
         }
@@ -164,7 +205,7 @@ struct ExpenseSpreadsheetView: View {
                 CGPoint(x: -(g.contentOffset.x + g.contentInsets.leading),
                         y: -(g.contentOffset.y + g.contentInsets.top))
             } action: { _, new in
-                scrollOffset = new
+                scrollModel.offset = new
             }
             .refreshable { await refresh() }
             .simultaneousGesture(
@@ -174,8 +215,23 @@ struct ExpenseSpreadsheetView: View {
             )
             // 凍結窗格:品項欄(橫向捲動時固定)與表頭列(縱向捲動時固定)。
             // 純視覺複本、不攔截手勢;拖曳/縮放/下拉更新照常作用在底下的 ScrollView。
-            .overlay(alignment: .topLeading) { pinnedColumn(viewportHeight: geo.size.height) }
-            .overlay(alignment: .topLeading) { pinnedHeader(viewportWidth: geo.size.width) }
+            .overlay(alignment: .topLeading) {
+                PinnedColumnOverlay(
+                    model: scrollModel,
+                    columnWidth: iW,
+                    viewportHeight: geo.size.height,
+                    content: leftColumn
+                )
+            }
+            .overlay(alignment: .topLeading) {
+                PinnedHeaderOverlay(
+                    model: scrollModel,
+                    rowHeight: rH,
+                    viewportWidth: geo.size.width,
+                    content: headerRow,
+                    corner: hCell("品項", w: iW)
+                )
+            }
         }
         .navigationTitle("分帳明細")
         .navigationBarTitleDisplayMode(.inline)
@@ -287,33 +343,7 @@ struct ExpenseSpreadsheetView: View {
         }
     }
 
-    // MARK: - Frozen panes(凍結表頭/品項欄)
-
-    /// 品項欄複本:縱向跟著內容捲、橫向釘在左緣(往左過拉時跟隨內容)。
-    private func pinnedColumn(viewportHeight: CGFloat) -> some View {
-        ZStack(alignment: .topLeading) {
-            leftColumn
-                .offset(x: max(scrollOffset.x, 0), y: scrollOffset.y)
-        }
-        .frame(width: iW + max(scrollOffset.x, 0), height: viewportHeight, alignment: .topLeading)
-        .clipped()
-        .shadow(color: .black.opacity(scrollOffset.x < -1 ? 0.18 : 0), radius: 3, x: 2, y: 0)
-        .allowsHitTesting(false)
-    }
-
-    /// 表頭列複本:橫向跟著內容捲、縱向釘在頂端(左上角「品項」雙向釘住)。
-    private func pinnedHeader(viewportWidth: CGFloat) -> some View {
-        ZStack(alignment: .topLeading) {
-            headerRow
-                .offset(x: scrollOffset.x, y: max(scrollOffset.y, 0))
-            hCell("品項", w: iW)
-                .offset(x: max(scrollOffset.x, 0), y: max(scrollOffset.y, 0))
-        }
-        .frame(width: viewportWidth, height: rH + max(scrollOffset.y, 0), alignment: .topLeading)
-        .clipped()
-        .shadow(color: .black.opacity(scrollOffset.y < -1 ? 0.18 : 0), radius: 3, x: 0, y: 2)
-        .allowsHitTesting(false)
-    }
+    // MARK: - Frozen panes(凍結表頭/品項欄的內容;覆蓋層本體見檔案頂部的兩個獨立 View)
 
     /// 品項欄的完整縱向序列,列高與 tableContent 一一對應(皆為 rH)。
     private var leftColumn: some View {
