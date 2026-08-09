@@ -171,6 +171,26 @@ struct ExpenseEditView: View {
                     }
                 }
             }
+
+            // MARK: - 編輯資訊
+            if let exp = viewModel.existingExpense {
+                Section {
+                    HStack {
+                        Text(exp.updatedAt == nil ? "建立時間" : "最後編輯")
+                        Spacer()
+                        Text(exp.updatedAt ?? exp.createdAt,
+                             format: .dateTime.year().month().day().hour().minute())
+                            .foregroundStyle(.secondary)
+                    }
+                    if let editor = exp.lastEditorName, !editor.isEmpty {
+                        HStack {
+                            Text("編輯者")
+                            Spacer()
+                            Text(editor).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
         }
         .navigationTitle(isEditing ? "編輯花費" : "新增花費")
         .navigationBarTitleDisplayMode(.inline)

@@ -32,6 +32,11 @@ final class Expense {
     /// 明確保存可避免「自訂但金額剛好相等」被誤判為均分。
     var isEvenSplit: Bool? = nil
 
+    /// 最後一次新增/編輯的時間（nil=舊資料，顯示時退回 createdAt）。
+    var updatedAt: Date? = nil
+    /// 最後編輯者名稱（共享帳本＝當下認領的成員名；本地或未認領為 nil）。
+    var lastEditorName: String? = nil
+
     var isForeignCurrency: Bool { originalCurrencyCode != nil }
 
     init(title: String, totalAmount: Decimal, paidBy: Member?, date: Date? = nil, note: String? = nil) {

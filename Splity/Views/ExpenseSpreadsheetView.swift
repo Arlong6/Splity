@@ -91,6 +91,8 @@ struct ExpenseSpreadsheetView: View {
     @State private var syncError: String?
     /// 注意:父 view body 不可讀取 scrollModel.offset(會把整張表捲進每格重繪)。
     @State private var scrollModel = SpreadsheetScrollModel()
+    /// 進場先顯示載入中,把沉重的表格建構延到轉場動畫之後(+ 共享帳本的網路 pull 期間),避免進場卡頓。
+    @State private var isLoading = true
 
     // 總花費列底色：飽和金黃，黑字對比清晰
     private let amberColor = Color(red: 1.0, green: 0.80, blue: 0.05)
@@ -193,6 +195,11 @@ struct ExpenseSpreadsheetView: View {
     // MARK: - Body
 
     var body: some View {
+        SwiftUI.Group {   // 明確用 SwiftUI.Group(專案有 @Model Group,直接寫 Group 會被解析成資料模型)
+        if isLoading {
+            ProgressView("載入中…")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
         GeometryReader { geo in
             ScrollView([.horizontal, .vertical]) {
                 // 內容比視口小時 2D ScrollView 會置中;強制至少填滿視口讓表格固定靠左上,
@@ -233,6 +240,8 @@ struct ExpenseSpreadsheetView: View {
                 )
             }
         }
+        }
+        }
         .navigationTitle("分帳明細")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -253,7 +262,11 @@ struct ExpenseSpreadsheetView: View {
                 }
             }
         }
-        .task { await refresh() }
+        .task {
+            await refresh()          // 共享帳本:等網路 pull 完;本地:立即返回
+            await Task.yield()        // 讓轉場動畫先跑一格,再建構表格
+            isLoading = false
+        }
         .alert("同步失敗", isPresented: Binding(
             get: { syncError != nil },
             set: { if !$0 { syncError = nil } }

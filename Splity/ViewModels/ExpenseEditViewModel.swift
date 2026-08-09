@@ -230,6 +230,8 @@ final class ExpenseEditViewModel {
             savedExpense = expense
         }
         savedExpense.isEvenSplit = isEvenSplit
+        savedExpense.updatedAt = Date()
+        savedExpense.lastEditorName = FirebaseSharingManager.shared.claimedMember(in: group)?.name
 
         do {
             try modelContext.save()

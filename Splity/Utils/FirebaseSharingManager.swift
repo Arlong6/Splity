@@ -439,6 +439,10 @@ final class FirebaseSharingManager {
                     if existing.isEvenSplit != newIsEvenSplit {
                         existing.isEvenSplit = newIsEvenSplit
                     }
+                    let newUpdatedAt = (eData["updatedAt"] as? Timestamp)?.dateValue()
+                    if existing.updatedAt != newUpdatedAt { existing.updatedAt = newUpdatedAt }
+                    let newEditor = eData["lastEditorName"] as? String
+                    if existing.lastEditorName != newEditor { existing.lastEditorName = newEditor }
 
                     // Only rebuild splits if they actually differ (avoids expensive churn)
                     if !splitsMatch(existing: existing.splits, remote: eData["splits"] as? [[String: Any]] ?? []) {
@@ -461,6 +465,8 @@ final class FirebaseSharingManager {
                     if let oaStr = eData["originalAmount"] as? String { expense.originalAmount = Decimal(string: oaStr) }
                     if let rateStr = eData["exchangeRate"] as? String { expense.exchangeRate = Decimal(string: rateStr) }
                     expense.isEvenSplit = eData["isEvenSplit"] as? Bool
+                    if let ua = eData["updatedAt"] as? Timestamp { expense.updatedAt = ua.dateValue() }
+                    expense.lastEditorName = eData["lastEditorName"] as? String
                     modelContext.insert(expense)
                     group.expenses.append(expense)
                     appendSplits(from: eData, to: expense, memberMap: memberMap, modelContext: modelContext)
@@ -621,6 +627,8 @@ final class FirebaseSharingManager {
         if let oa = expense.originalAmount { eDict["originalAmount"] = "\(oa)" }
         if let rate = expense.exchangeRate { eDict["exchangeRate"] = "\(rate)" }
         if let ev = expense.isEvenSplit { eDict["isEvenSplit"] = ev }
+        if let ua = expense.updatedAt { eDict["updatedAt"] = Timestamp(date: ua) }
+        if let ed = expense.lastEditorName { eDict["lastEditorName"] = ed }
         eDict["splits"] = expense.splits.map { split in
             [
                 "id": split.id.uuidString,
@@ -679,6 +687,8 @@ final class FirebaseSharingManager {
                 if let oaStr = eData["originalAmount"] as? String { expense.originalAmount = Decimal(string: oaStr) }
                 if let rateStr = eData["exchangeRate"] as? String { expense.exchangeRate = Decimal(string: rateStr) }
                 expense.isEvenSplit = eData["isEvenSplit"] as? Bool
+                if let ua = eData["updatedAt"] as? Timestamp { expense.updatedAt = ua.dateValue() }
+                expense.lastEditorName = eData["lastEditorName"] as? String
 
                 if let splitsData = eData["splits"] as? [[String: Any]] {
                     for sData in splitsData {
