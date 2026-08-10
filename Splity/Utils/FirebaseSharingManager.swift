@@ -278,8 +278,10 @@ final class FirebaseSharingManager {
         guard doc.exists, let data = doc.data() else {
             throw SharingError.groupNotFound
         }
-        let subSnap = try? await groupRef.collection("expenses").getDocuments(source: .server)
-        let subDocs = subSnap?.documents.map { $0.data() }
+        // 子集合抓不到就讓整個 pull 失敗（caller 顯示錯誤、可重試），
+        // 不能只用舊陣列合併——鏡像可能落後，會把較新的編輯退回舊值。
+        let subSnap = try await groupRef.collection("expenses").getDocuments(source: .server)
+        let subDocs = subSnap.documents.map { $0.data() }
 
         await MainActor.run {
             mergeGroupMeta(data, into: group, modelContext: modelContext)
@@ -310,8 +312,14 @@ final class FirebaseSharingManager {
             if let gdata = state.groupData {
                 self.mergeGroupMeta(gdata, into: group, modelContext: modelContext)
             }
+            // 子集合快照未到前不合併花費：此時只有舊陣列（鏡像為盡力寫入，可能落後），
+            // 先合併會把較新的編輯暫時退回舊值；等權威的子集合快照到齊再一起合併。
+            guard let subDocs = state.subDocs else {
+                try? modelContext.save()
+                return
+            }
             let unified = self.unifiedExpenses(
-                subcollection: state.subDocs,
+                subcollection: subDocs,
                 legacyArray: state.groupData?["expenses"] as? [[String: Any]] ?? []
             )
             self.mergeExpenses(unified, into: group, modelContext: modelContext)
@@ -377,13 +385,11 @@ final class FirebaseSharingManager {
     }
 
     /// 雙讀統一：子集合為權威來源，舊 expenses[] 陣列補上子集合沒有的項目
-    /// （如舊版 client 新增、尚未惰性遷移的群組）。subcollection 為 nil 代表子集合 listener
-    /// 尚未回來，先用陣列。
-    private func unifiedExpenses(subcollection: [[String: Any]]?, legacyArray: [[String: Any]]) -> [[String: Any]] {
-        guard let sub = subcollection else { return legacyArray }
+    /// （如舊版 client 新增、尚未惰性遷移的群組）。
+    private func unifiedExpenses(subcollection: [[String: Any]], legacyArray: [[String: Any]]) -> [[String: Any]] {
         var byId: [String: [String: Any]] = [:]
         for e in legacyArray { if let id = e["id"] as? String { byId[id] = e } }
-        for e in sub { if let id = e["id"] as? String { byId[id] = e } }   // 子集合覆蓋陣列（權威）
+        for e in subcollection { if let id = e["id"] as? String { byId[id] = e } }   // 子集合覆蓋陣列（權威）
         return Array(byId.values)
     }
 
@@ -403,6 +409,14 @@ final class FirebaseSharingManager {
             let archived = eData["isDeleted"] as? Bool ?? false
 
             if let existing = group.expenses.first(where: { $0.id == uuid }) {
+                    // Last-write-wins 防護：遠端這份比本地已知的舊（如落後的鏡像陣列），跳過，
+                    // 免得把較新的編輯退回舊值。只在兩邊都有 updatedAt 時比較——遠端沒有
+                    // 時間戳可能是舊版 client 的合法新編輯，仍須照舊合併。
+                    if let localUpdated = existing.updatedAt,
+                       let remoteUpdated = (eData["updatedAt"] as? Timestamp)?.dateValue(),
+                       remoteUpdated < localUpdated {
+                        continue
+                    }
                     if existing.title != title { existing.title = title }
                     if existing.totalAmount != total { existing.totalAmount = total }
                     if existing.paidBy?.id != payer?.id { existing.paidBy = payer }
