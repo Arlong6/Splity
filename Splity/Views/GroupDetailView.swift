@@ -463,6 +463,15 @@ struct ExpenseRowView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            // 編輯者資訊:只在有編輯者(=共享帳本的編輯)時顯示,本地單人帳本保持乾淨
+            if let editor = expense.lastEditorName, !editor.isEmpty {
+                HStack(spacing: 4) {
+                    Text("\(editor) · 編輯")
+                    Text(expense.updatedAt ?? expense.createdAt, format: .dateTime.month().day())
+                }
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+            }
         }
         .padding(.vertical, 2)
     }
