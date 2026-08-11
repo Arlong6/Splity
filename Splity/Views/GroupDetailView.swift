@@ -188,6 +188,10 @@ struct GroupDetailView: View {
         let title = expense.title
         expense.archived = true
         expense.deletedAt = Date()
+        // 每條會推送的變更路徑都要 bump updatedAt，否則帶舊時間戳的推送會被
+        // 其他裝置的 LWW 合併防護當成舊資料丟棄（刪除被復活）
+        expense.updatedAt = Date()
+        expense.lastEditorName = sharingManager.claimedMember(in: group)?.name
         expenseToDelete = nil
         saveAndPush(expense)
         logAction(.deletedExpense, target: title)
@@ -333,6 +337,8 @@ struct GroupDetailView: View {
         guard !trimmed.isEmpty, let expense = expenseToRename else { return }
         let oldTitle = expense.title
         expense.title = trimmed
+        expense.updatedAt = Date()
+        expense.lastEditorName = sharingManager.claimedMember(in: group)?.name
         expenseToRename = nil
         saveAndPush(expense)
         logAction(.renamedExpense, target: trimmed, details: oldTitle == trimmed ? nil : "原：\(oldTitle)")

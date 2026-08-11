@@ -126,6 +126,7 @@ struct GroupListView: View {
                     Label("輸入邀請碼加入帳目", systemImage: "ticket")
                         .foregroundStyle(.blue)
                 }
+                .disabled(isJoining)
             }
 
             // 進行中
@@ -151,6 +152,9 @@ struct GroupListView: View {
                                 )
                                 modelContext.insert(record)
                                 group.isSettled = true
+                                save()
+                                pushMetaIfShared(group)
+                                updateWidget()
                             } label: {
                                 Label("已結清", systemImage: "checkmark.seal")
                             }
@@ -185,6 +189,9 @@ struct GroupListView: View {
                             }
                             Button {
                                 group.isSettled = false
+                                save()
+                                pushMetaIfShared(group)
+                                updateWidget()
                             } label: {
                                 Label("取消結清", systemImage: "arrow.uturn.backward")
                             }
@@ -211,6 +218,13 @@ struct GroupListView: View {
                     systemImage: "person.3",
                     description: Text("點右上角 + 建立一個新的帳本")
                 )
+            }
+        }
+        .overlay {
+            if isJoining {
+                ProgressView("加入中…")
+                    .padding(20)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
             }
         }
     }
@@ -381,6 +395,20 @@ struct GroupListView: View {
         group.name = trimmed
         groupToRename = nil
         save()
+        pushMetaIfShared(group)
+    }
+
+    /// 共享帳本的列表操作（結清/改名）推送到 Firestore，否則其他成員看不到、
+    /// 且下次同步會把本機改動退回遠端舊值。
+    private func pushMetaIfShared(_ group: Group) {
+        guard group.isShared else { return }
+        Task {
+            do {
+                try await sharingManager.pushGroupScalars(for: group)
+            } catch {
+                saveError = error.localizedDescription
+            }
+        }
     }
 
     private func confirmDeleteGroup() {

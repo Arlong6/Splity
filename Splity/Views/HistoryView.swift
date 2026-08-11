@@ -47,6 +47,10 @@ struct HistoryView: View {
                                 Button("還原") {
                                     expense.archived = false
                                     expense.deletedAt = nil
+                                    expense.updatedAt = Date()
+                                    if let g = expense.group {
+                                        expense.lastEditorName = FirebaseSharingManager.shared.claimedMember(in: g)?.name
+                                    }
                                     try? modelContext.save()
                                     if let g = expense.group, g.isShared {
                                         Task { try? await FirebaseSharingManager.shared.pushExpense(expense, in: g) }

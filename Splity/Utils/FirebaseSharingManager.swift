@@ -67,8 +67,9 @@ final class FirebaseSharingManager {
         try await signInAnonymously()
         guard let userId = currentUserId else { throw SharingError.notAuthenticated }
 
+        // 已分享過就直接回傳邀請碼，不重推資料——花費平時已由 pushExpense 逐筆同步，
+        // 這裡整包重推反而會把「本機尚未收到的較新遠端編輯」蓋回舊值。
         if let existingCode = group.inviteCode, group.firestoreGroupId != nil {
-            try await pushChanges(for: group)
             return existingCode
         }
 
@@ -235,6 +236,18 @@ final class FirebaseSharingManager {
             "isSettled": group.isSettled,
             "baseCurrencyCode": group.baseCurrencyCode,
             "members": members
+        ])
+    }
+
+    /// 只推送 name/isSettled/baseCurrencyCode，完全不碰 members 陣列——
+    /// 給「成員沒變」的路徑（列表結清/改名）用，避免整包覆寫洗掉併發的認領/新成員。
+    func pushGroupScalars(for group: Group) async throws {
+        guard let firestoreId = group.firestoreGroupId else { return }
+        try await signInAnonymously()
+        try await db.collection("groups").document(firestoreId).updateData([
+            "name": group.name,
+            "isSettled": group.isSettled,
+            "baseCurrencyCode": group.baseCurrencyCode
         ])
     }
 
