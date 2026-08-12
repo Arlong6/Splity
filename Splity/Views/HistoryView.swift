@@ -53,7 +53,12 @@ struct HistoryView: View {
                                     }
                                     try? modelContext.save()
                                     if let g = expense.group, g.isShared {
-                                        Task { try? await FirebaseSharingManager.shared.pushExpense(expense, in: g) }
+                                        let title = expense.title
+                                        Task {
+                                            try? await FirebaseSharingManager.shared.pushExpense(expense, in: g)
+                                            await FirebaseSharingManager.shared.logActivity(
+                                                for: g, action: .restoredExpense, target: title)
+                                        }
                                     }
                                 }
                                 .font(.caption.bold())

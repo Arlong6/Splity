@@ -579,6 +579,18 @@ final class FirebaseSharingManager {
             .collection("activities").addDocument(data: payload)
     }
 
+    /// 群組最新一筆活動時間（帳本列表未讀紅點用）；讀不到一律回 nil 不視為未讀。
+    func latestActivityDate(groupId: String) async -> Date? {
+        guard FirebaseApp.app() != nil else { return nil }
+        try? await signInAnonymously()
+        let snap = try? await db.collection("groups").document(groupId)
+            .collection("activities")
+            .order(by: "timestamp", descending: true)
+            .limit(to: 1)
+            .getDocuments()
+        return (snap?.documents.first?.data()["timestamp"] as? Timestamp)?.dateValue()
+    }
+
     @MainActor
     func listenToActivities(
         groupId: String,
@@ -781,6 +793,20 @@ struct ActivityEntry: Identifiable, Hashable, Sendable {
     let target: String
     let details: String?
     let timestamp: Date
+}
+
+/// 每裝置的「看過此帳本活動」時間戳（未讀紅點）。存 UserDefaults 不進 SwiftData——
+/// 已讀是裝置層級的狀態，不該跟著帳本資料同步到其他裝置。
+enum ActivitySeenStore {
+    private static func key(_ groupId: String) -> String { "activitySeen.\(groupId)" }
+
+    static func lastSeen(groupId: String) -> Date? {
+        UserDefaults.standard.object(forKey: key(groupId)) as? Date
+    }
+
+    static func markSeen(groupId: String) {
+        UserDefaults.standard.set(Date(), forKey: key(groupId))
+    }
 }
 
 // MARK: - Errors

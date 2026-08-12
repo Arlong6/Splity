@@ -23,6 +23,7 @@ struct GroupListView: View {
     @State private var saveError: String?
     @State private var updateChecker = AppUpdateChecker.shared
     @State private var groupToDelete: Group?
+    @State private var unreadGroupIds: Set<UUID> = []
 
     private var activeGroups: [Group] { groups.filter { !$0.isSettled } }
     private var settledGroups: [Group] { groups.filter { $0.isSettled } }
@@ -38,7 +39,10 @@ struct GroupListView: View {
                 .navigationDestination(for: Group.self) { group in
                     GroupDetailView(group: group)
                 }
-                .onAppear { updateWidget() }
+                .onAppear {
+                    updateWidget()
+                    refreshUnread()
+                }
                 .task { await updateChecker.checkIfNeeded() }
                 .alert("有新版本可用", isPresented: $updateChecker.updateAvailable) {
                     Button("前往更新") { updateChecker.openAppStore() }
@@ -153,7 +157,7 @@ struct GroupListView: View {
                                 modelContext.insert(record)
                                 group.isSettled = true
                                 save()
-                                pushMetaIfShared(group)
+                                pushMetaIfShared(group, logging: .settledGroup)
                                 updateWidget()
                             } label: {
                                 Label("已結清", systemImage: "checkmark.seal")
@@ -190,7 +194,7 @@ struct GroupListView: View {
                             Button {
                                 group.isSettled = false
                                 save()
-                                pushMetaIfShared(group)
+                                pushMetaIfShared(group, logging: .unsettledGroup)
                                 updateWidget()
                             } label: {
                                 Label("取消結清", systemImage: "arrow.uturn.backward")
@@ -368,6 +372,12 @@ struct GroupListView: View {
                             .font(.caption2)
                             .foregroundStyle(.blue)
                     }
+                    if unreadGroupIds.contains(group.id) {
+                        Circle()
+                            .fill(.red)
+                            .frame(width: 8, height: 8)
+                            .accessibilityLabel("有新活動")
+                    }
                 }
                 Text("\(group.members.count) 人・\(group.expenses.filter { !$0.archived }.count) 筆花費")
                     .font(.caption)
@@ -400,13 +410,33 @@ struct GroupListView: View {
 
     /// 共享帳本的列表操作（結清/改名）推送到 Firestore，否則其他成員看不到、
     /// 且下次同步會把本機改動退回遠端舊值。
-    private func pushMetaIfShared(_ group: Group) {
+    private func pushMetaIfShared(_ group: Group, logging action: ActivityAction? = nil) {
         guard group.isShared else { return }
         Task {
             do {
                 try await sharingManager.pushGroupScalars(for: group)
+                if let action {
+                    await sharingManager.logActivity(for: group, action: action, target: group.name)
+                }
             } catch {
                 saveError = error.localizedDescription
+            }
+        }
+    }
+
+    /// 共享帳本抓最新活動時間，晚於本裝置已讀時間就標紅點。
+    private func refreshUnread() {
+        for group in groups where group.isShared {
+            guard let fid = group.firestoreGroupId else { continue }
+            let gid = group.id
+            Task {
+                guard let latest = await sharingManager.latestActivityDate(groupId: fid) else { return }
+                let seen = ActivitySeenStore.lastSeen(groupId: fid) ?? .distantPast
+                if latest > seen {
+                    unreadGroupIds.insert(gid)
+                } else {
+                    unreadGroupIds.remove(gid)
+                }
             }
         }
     }

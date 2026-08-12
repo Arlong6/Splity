@@ -62,10 +62,13 @@ struct GroupDetailView: View {
                     claimForShare = false
                     showingClaimPicker = true
                 }
+                markActivitySeen()
             }
             .onDisappear {
                 subscription?.stop()
                 subscription = nil
+                // 離開時也標已讀：自己在帳本內的操作不該回列表變成紅點
+                markActivitySeen()
             }
     }
 
@@ -75,6 +78,12 @@ struct GroupDetailView: View {
             expensesSection
         }
         .refreshable { await refreshFromCloud() }
+    }
+
+    private func markActivitySeen() {
+        if let fid = group.firestoreGroupId {
+            ActivitySeenStore.markSeen(groupId: fid)
+        }
     }
 
     private func refreshFromCloud() async {
