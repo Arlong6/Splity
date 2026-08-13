@@ -15,6 +15,5 @@ GoogleService-Info.plist
 Screenshots/
 
 # Stray root artifact (empty plist)
-/Info.plist
 
 .DS_Store

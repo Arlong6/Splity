@@ -98,21 +98,7 @@ private struct ActivityRow: View {
         .padding(.vertical, 4)
     }
 
-    private var actionText: String {
-        switch entry.action {
-        case .sharedGroup: return "分享了帳目"
-        case .joinedGroup: return "加入了帳目"
-        case .addedMember: return "加入了成員"
-        case .removedMember: return "移除了成員"
-        case .addedExpense: return "新增了花費"
-        case .editedExpense: return "編輯了花費"
-        case .renamedExpense: return "改了花費名稱"
-        case .deletedExpense: return "刪除了花費"
-        case .restoredExpense: return "還原了花費"
-        case .settledGroup: return "標記為結清"
-        case .unsettledGroup: return "取消結清"
-        }
-    }
+    private var actionText: String { entry.action.displayText }
 
     private var icon: String {
         switch entry.action {

@@ -602,26 +602,39 @@ final class FirebaseSharingManager {
             .limit(to: 200)
             .addSnapshotListener { snapshot, _ in
                 guard let docs = snapshot?.documents else { return }
-                let entries: [ActivityEntry] = docs.compactMap { doc in
-                    let data = doc.data()
-                    guard let actorName = data["actorName"] as? String,
-                          let actionStr = data["action"] as? String,
-                          let action = ActivityAction(rawValue: actionStr),
-                          let target = data["target"] as? String else { return nil }
-                    let timestamp = (data["timestamp"] as? Timestamp)?.dateValue() ?? Date()
-                    let details = data["details"] as? String
-                    return ActivityEntry(
-                        id: doc.documentID,
-                        actorName: actorName,
-                        action: action,
-                        target: target,
-                        details: (details?.isEmpty ?? true) ? nil : details,
-                        timestamp: timestamp
-                    )
-                }
+                let entries = docs.compactMap { Self.parseActivity(id: $0.documentID, data: $0.data()) }
                 Task { @MainActor in onUpdate(entries) }
             }
         return SharingSubscription { reg.remove() }
+    }
+
+    /// 一次性抓最新活動（背景通知檢查用，不掛 listener）。
+    func recentActivities(groupId: String, limit: Int) async -> [ActivityEntry] {
+        guard FirebaseApp.app() != nil else { return [] }
+        let snap = try? await db.collection("groups").document(groupId)
+            .collection("activities")
+            .order(by: "timestamp", descending: true)
+            .limit(to: limit)
+            .getDocuments()
+        return (snap?.documents ?? []).compactMap { Self.parseActivity(id: $0.documentID, data: $0.data()) }
+    }
+
+    private static func parseActivity(id: String, data: [String: Any]) -> ActivityEntry? {
+        guard let actorName = data["actorName"] as? String,
+              let actionStr = data["action"] as? String,
+              let action = ActivityAction(rawValue: actionStr),
+              let target = data["target"] as? String else { return nil }
+        let timestamp = (data["timestamp"] as? Timestamp)?.dateValue() ?? Date()
+        let details = data["details"] as? String
+        return ActivityEntry(
+            id: id,
+            actorName: actorName,
+            actorId: data["actorId"] as? String ?? "",
+            action: action,
+            target: target,
+            details: (details?.isEmpty ?? true) ? nil : details,
+            timestamp: timestamp
+        )
     }
 
     // MARK: - Serialization
@@ -786,9 +799,29 @@ enum ActivityAction: String, Codable, Sendable {
     case unsettledGroup = "unsettled_group"
 }
 
+extension ActivityAction {
+    /// 動作的顯示文案（活動頁列表與本地通知共用）。
+    var displayText: String {
+        switch self {
+        case .sharedGroup: return "分享了帳目"
+        case .joinedGroup: return "加入了帳目"
+        case .addedMember: return "加入了成員"
+        case .removedMember: return "移除了成員"
+        case .addedExpense: return "新增了花費"
+        case .editedExpense: return "編輯了花費"
+        case .renamedExpense: return "改了花費名稱"
+        case .deletedExpense: return "刪除了花費"
+        case .restoredExpense: return "還原了花費"
+        case .settledGroup: return "標記為結清"
+        case .unsettledGroup: return "取消結清"
+        }
+    }
+}
+
 struct ActivityEntry: Identifiable, Hashable, Sendable {
     let id: String
     let actorName: String
+    let actorId: String
     let action: ActivityAction
     let target: String
     let details: String?
@@ -806,6 +839,16 @@ enum ActivitySeenStore {
 
     static func markSeen(groupId: String) {
         UserDefaults.standard.set(Date(), forKey: key(groupId))
+    }
+
+    // 背景通知的去重標記：記到「已通知過的最新活動時間」，下次背景檢查
+    // 只對更晚的活動再發通知，避免同一批動態重複打擾。
+    static func lastNotified(groupId: String) -> Date? {
+        UserDefaults.standard.object(forKey: "activityNotified.\(groupId)") as? Date
+    }
+
+    static func markNotified(groupId: String, upTo date: Date) {
+        UserDefaults.standard.set(date, forKey: "activityNotified.\(groupId)")
     }
 }
 

@@ -42,6 +42,10 @@ struct GroupListView: View {
                 .onAppear {
                     updateWidget()
                     refreshUnread()
+                    // 有共享帳本才要通知權限（背景活動通知用）；授權框只會跳一次
+                    if groups.contains(where: { $0.isShared }) {
+                        ActivityNotifier.requestPermissionIfNeeded()
+                    }
                 }
                 .task { await updateChecker.checkIfNeeded() }
                 .alert("有新版本可用", isPresented: $updateChecker.updateAvailable) {

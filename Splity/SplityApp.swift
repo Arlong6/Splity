@@ -26,6 +26,7 @@ final class SplityAppCheckProviderFactory: NSObject, AppCheckProviderFactory {
 @main
 struct SplityApp: App {
     @AppStorage("appLanguage") private var appLanguage = "zh-Hant"
+    @Environment(\.scenePhase) private var scenePhase
     @State private var sharingManager = FirebaseSharingManager.shared
 
     let container: ModelContainer
@@ -86,6 +87,11 @@ struct SplityApp: App {
                     ))
             }
         }
+
+        // 背景任務 handler 必須在 app 完成啟動前註冊
+        if !isTest {
+            ActivityNotifier.register(container: container)
+        }
     }
 
     var body: some Scene {
@@ -94,6 +100,11 @@ struct SplityApp: App {
                 .environment(\.locale, Locale(identifier: appLanguage))
                 .environment(sharingManager)
                 .task { try? await sharingManager.signInAnonymously() }
+                .onChange(of: scenePhase) { _, phase in
+                    if phase == .background {
+                        ActivityNotifier.scheduleNext()
+                    }
+                }
         }
         .modelContainer(container)
     }
