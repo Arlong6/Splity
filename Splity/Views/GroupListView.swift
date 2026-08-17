@@ -23,6 +23,7 @@ struct GroupListView: View {
     @State private var saveError: String?
     @State private var updateChecker = AppUpdateChecker.shared
     @State private var groupToDelete: Group?
+    @State private var groupToSettle: Group?
     @State private var unreadGroupIds: Set<UUID> = []
 
     private var activeGroups: [Group] { groups.filter { !$0.isSettled } }
@@ -98,6 +99,18 @@ struct GroupListView: View {
                         Text("「\(groupToDelete?.name ?? "")」會被永久刪除。")
                     }
                 }
+                .alert("標記為結清？", isPresented: Binding(
+                    get: { groupToSettle != nil },
+                    set: { if !$0 { groupToSettle = nil } }
+                )) {
+                    Button("結清") {
+                        if let group = groupToSettle { performSettle(group) }
+                        groupToSettle = nil
+                    }
+                    Button("取消", role: .cancel) { groupToSettle = nil }
+                } message: {
+                    Text("整本帳會標記為結清，所有成員都會看到並收到通知。之後可隨時取消結清。")
+                }
                 .modifier(JoinCodeAlerts(
                     showingJoinCode: $showingJoinCode,
                     joinCode: $joinCode,
@@ -152,17 +165,12 @@ struct GroupListView: View {
                                       systemImage: group.isShared ? "rectangle.portrait.and.arrow.right" : "trash")
                             }
                             Button {
-                                let record = HistoryRecord(
-                                    groupName: group.name,
-                                    memberCount: group.members.count,
-                                    expenseCount: group.expenses.count,
-                                    action: .settled
-                                )
-                                modelContext.insert(record)
-                                group.isSettled = true
-                                save()
-                                pushMetaIfShared(group, logging: .settledGroup)
-                                updateWidget()
+                                // 共享帳本先確認(全員生效的動作);本地帳本直接結清
+                                if group.isShared {
+                                    groupToSettle = group
+                                } else {
+                                    performSettle(group)
+                                }
                             } label: {
                                 Label("已結清", systemImage: "checkmark.seal")
                             }
@@ -410,6 +418,20 @@ struct GroupListView: View {
         groupToRename = nil
         save()
         pushMetaIfShared(group)
+    }
+
+    private func performSettle(_ group: Group) {
+        let record = HistoryRecord(
+            groupName: group.name,
+            memberCount: group.members.count,
+            expenseCount: group.expenses.count,
+            action: .settled
+        )
+        modelContext.insert(record)
+        group.isSettled = true
+        save()
+        pushMetaIfShared(group, logging: .settledGroup)
+        updateWidget()
     }
 
     /// 共享帳本的列表操作（結清/改名）推送到 Firestore，否則其他成員看不到、
