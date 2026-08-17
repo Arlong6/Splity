@@ -92,6 +92,36 @@ struct SplityApp: App {
         if !isTest {
             ActivityNotifier.register(container: container)
         }
+
+        // 效能測試 seed：只在 UI 測試環境 + 明確帶參數時生效，正式版不可能觸發
+        if isTest, ProcessInfo.processInfo.arguments.contains("-SeedLargeSheet") {
+            Self.seedLargeSheet(into: container.mainContext)
+        }
+    }
+
+    /// 500 筆 × 8 人的大帳本（表格開頁效能的重現資料，數值固定可重跑）
+    @MainActor
+    private static func seedLargeSheet(into context: ModelContext) {
+        let group = Group(name: "PerfTest", baseCurrencyCode: "TWD")
+        context.insert(group)
+        let members = (1...8).map { Member(name: "成員\($0)") }
+        for m in members {
+            context.insert(m)
+            group.members.append(m)
+        }
+        for i in 1...500 {
+            let total = Decimal(100 + (i % 50) * 10)
+            let expense = Expense(title: "花費\(i)", totalAmount: total, paidBy: members[i % 8])
+            context.insert(expense)
+            group.expenses.append(expense)
+            let share = total / 8
+            for m in members {
+                let split = ExpenseSplit(member: m, amount: share)
+                context.insert(split)
+                expense.splits.append(split)
+            }
+        }
+        try? context.save()
     }
 
     var body: some Scene {

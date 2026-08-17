@@ -18,16 +18,6 @@ private struct CSVExportFile: Transferable {
     }
 }
 
-// MARK: - Row model
-
-private struct Row: Identifiable {
-    let id: UUID        // expense.id
-    let title: String
-    let amounts: [Decimal]
-    let total: Decimal
-}
-
-
 // MARK: - Frozen-pane scroll model
 
 /// 捲動位移模型:靜止=(0,0),往下/右捲為負。用 @Observable 而非 @State——
@@ -91,8 +81,30 @@ struct ExpenseSpreadsheetView: View {
     @State private var syncError: String?
     /// 注意:父 view body 不可讀取 scrollModel.offset(會把整張表捲進每格重繪)。
     @State private var scrollModel = SpreadsheetScrollModel()
-    /// 進場先顯示載入中,把沉重的表格建構延到轉場動畫之後(+ 共享帳本的網路 pull 期間),避免進場卡頓。
+    /// 進場先顯示載入中,把沉重的表格建構延到轉場動畫之後,避免進場卡頓。
     @State private var isLoading = true
+    /// 表格資料一次建好的快照(含格式化字串/顏色/CSV)。body 只讀這裡,絕不在
+    /// cell 層碰 SwiftData——先前 rowBg/myColumnIndex 每格重算(各自重走
+    /// sortedExpenses 關聯+排序),500 筆 × 每列一次 = 開頁卡 20 秒的主因。
+    @State private var sheet = SheetData()
+    @State private var myCol: Int?
+
+    private struct SheetRow: Identifiable {
+        let id: UUID
+        let title: String
+        let amounts: [String]
+        let total: String
+    }
+
+    private struct SheetData {
+        var evRows: [SheetRow] = []
+        var puRows: [SheetRow] = []
+        var subtotals: [String] = []
+        var subtotalTotal: String = "0"
+        var netAmounts: [String] = []
+        var rowColors: [Color] = []
+        var csv: String = ""
+    }
 
     // 總花費列底色：飽和金黃，黑字對比清晰
     private let amberColor = Color(red: 1.0, green: 0.80, blue: 0.05)
@@ -110,18 +122,9 @@ struct ExpenseSpreadsheetView: View {
     private var rH: CGFloat { baseRowH    * scale }
     private var fS: CGFloat { baseFontSize * scale }
 
-    // Generate N unique pastel colors by evenly spacing hues around the color wheel.
-    // Same index = same color in both sections; no repeats.
-    private var expenseColors: [Color] {
-        let n = max(sortedExpenses.count, 1)
-        return (0..<n).map { i in
-            Color(hue: Double(i) / Double(n), saturation: 0.22, brightness: 0.96)
-        }
-    }
-
     private func rowBg(_ index: Int) -> Color {
-        guard index < expenseColors.count else { return Color(.systemBackground) }
-        return expenseColors[index]
+        guard index < sheet.rowColors.count else { return Color(.systemBackground) }
+        return sheet.rowColors[index]
     }
 
     // MARK: - Data
@@ -130,62 +133,58 @@ struct ExpenseSpreadsheetView: View {
         group.members.sorted { $0.name < $1.name }
     }
 
-    /// 目前使用者認領的成員在 sortedMembers 的欄位索引(整欄高亮用);未認領為 nil
-    private var myColumnIndex: Int? {
-        guard let me = sharingManager.claimedMember(in: group) else { return nil }
-        return sortedMembers.firstIndex { $0.id == me.id }
-    }
-
     private var sortedExpenses: [Expense] {
         group.expenses.filter { !$0.archived }.sorted { $0.totalAmount > $1.totalAmount }
     }
 
-    /// 大家要付的(直接讀 expense.splits 關聯;先前用無 predicate 的全域 @Query 掃整個資料庫,
-    /// 群組一多就是效能地雷)
-    private var evRows: [Row] {
+    /// 單一趟建好整張表的顯示資料(SwiftData 關聯只走這一次)。
+    @MainActor
+    private func buildSheet() {
         let ms = sortedMembers
-        return sortedExpenses.map { exp in
+        let exps = sortedExpenses
+        let scale = Decimal.currencyFractionDigits(group.baseCurrencyCode)
+        func f(_ value: Decimal) -> String {
+            var rounded = Decimal()
+            var mutable = value
+            NSDecimalRound(&rounded, &mutable, scale, .plain)
+            return NSDecimalNumber(decimal: rounded).stringValue
+        }
+
+        var ev: [SheetRow] = []; ev.reserveCapacity(exps.count)
+        var pu: [SheetRow] = []; pu.reserveCapacity(exps.count)
+        var subs = Array(repeating: Decimal(0), count: ms.count)
+        for exp in exps {
             let byMember = Dictionary(
                 exp.splits.compactMap { s in s.member.map { ($0.id, s.amount) } },
                 uniquingKeysWith: { first, _ in first }
             )
-            return Row(
-                id: exp.id,
-                title: exp.title,
-                amounts: ms.map { byMember[$0.id] ?? 0 },
-                total: exp.totalAmount
-            )
+            var amounts: [String] = []; amounts.reserveCapacity(ms.count)
+            for (j, m) in ms.enumerated() {
+                let v = byMember[m.id] ?? 0
+                subs[j] += v
+                amounts.append(f(v))
+            }
+            ev.append(SheetRow(id: exp.id, title: exp.title, amounts: amounts, total: f(exp.totalAmount)))
+            pu.append(SheetRow(
+                id: exp.id, title: exp.title,
+                amounts: ms.map { m in exp.paidBy?.id == m.id ? f(-exp.totalAmount) : f(0) },
+                total: f(-exp.totalAmount)
+            ))
         }
-    }
-
-    /// 有人先墊
-    private var puRows: [Row] {
-        let ms = sortedMembers
-        return sortedExpenses.map { exp in
-            Row(
-                id: exp.id,
-                title: exp.title,
-                amounts: ms.map { m in
-                    exp.paidBy?.id == m.id ? -exp.totalAmount : 0
-                },
-                total: -exp.totalAmount
-            )
-        }
-    }
-
-    /// 大家要付的小計 per member
-    private var evSubtotals: [Decimal] {
-        let rows = evRows
-        guard !rows.isEmpty else { return Array(repeating: 0, count: sortedMembers.count) }
-        return rows[0].amounts.indices.map { j in
-            rows.reduce(Decimal(0)) { $0 + $1.amounts[j] }
-        }
-    }
-
-    /// 總花費 = -netBalance per member
-    private var netAmounts: [Decimal] {
-        let bal = SettlementCalculator.computeNetBalances(expenses: sortedExpenses)
-        return sortedMembers.map { -(bal[$0] ?? 0) }
+        let bal = SettlementCalculator.computeNetBalances(expenses: exps)
+        let n = max(exps.count, 1)
+        sheet = SheetData(
+            evRows: ev,
+            puRows: pu,
+            subtotals: subs.map(f),
+            subtotalTotal: f(subs.reduce(0, +)),
+            netAmounts: ms.map { f(-(bal[$0] ?? 0)) },
+            // 均勻分佈色相的粉彩底色;兩區同 index 同色
+            rowColors: (0..<n).map { Color(hue: Double($0) / Double(n), saturation: 0.22, brightness: 0.96) },
+            csv: SpreadsheetExporter.generateCSV(group: group)
+        )
+        myCol = sharingManager.claimedMember(in: group)
+            .flatMap { me in ms.firstIndex { $0.id == me.id } }
     }
 
     private var tableWidth: CGFloat {
@@ -214,7 +213,10 @@ struct ExpenseSpreadsheetView: View {
             } action: { _, new in
                 scrollModel.offset = new
             }
-            .refreshable { await refresh() }
+            .refreshable {
+                await refresh()
+                buildSheet()
+            }
             .simultaneousGesture(
                 MagnificationGesture()
                     .onChanged { v in scale = min(max(baseScale * v, 0.4), 3.0) }
@@ -254,7 +256,7 @@ struct ExpenseSpreadsheetView: View {
                 ShareLink(
                     item: CSVExportFile(
                         filename: "\(group.name)_分帳明細.csv",
-                        csvString: SpreadsheetExporter.generateCSV(group: group)
+                        csvString: sheet.csv   // buildSheet() 生成一次;先前每次 body 都重新產生整份 CSV
                     ),
                     preview: SharePreview("\(group.name)_分帳明細.csv")
                 ) {
@@ -263,9 +265,14 @@ struct ExpenseSpreadsheetView: View {
             }
         }
         .task {
-            await refresh()          // 共享帳本:等網路 pull 完;本地:立即返回
             await Task.yield()        // 讓轉場動畫先跑一格,再建構表格
-            isLoading = false
+            buildSheet()              // 本機資料一次建好
+            isLoading = false         // 立刻顯示
+            await refresh()           // 共享帳本背景拉取
+            buildSheet()              // 拉完把合併結果反映到表上
+        }
+        .onChange(of: group.expenses.count) {
+            buildSheet()              // 開表期間 listener 合併了新增/刪除
         }
         .alert("同步失敗", isPresented: Binding(
             get: { syncError != nil },
@@ -290,12 +297,13 @@ struct ExpenseSpreadsheetView: View {
 
     @ViewBuilder
     private var tableContent: some View {
-        let ms  = sortedMembers
-        let ev  = evRows
-        let pu  = puRows
-        let net = netAmounts
+        let ev  = sheet.evRows
+        let pu  = sheet.puRows
+        let net = sheet.netAmounts
 
-        VStack(alignment: .leading, spacing: 0) {
+        // LazyVStack：只材料化可視範圍的列。先前 500 筆 × 8 人會一次建 ~10,000 個
+        // view（每列 HStack 是固定高度 rH，凍結窗格對齊不受 lazy 影響）
+        LazyVStack(alignment: .leading, spacing: 0) {
 
             // ── Header ──────────────────────────────────────────
             headerRow
@@ -306,20 +314,20 @@ struct ExpenseSpreadsheetView: View {
                 HStack(spacing: 0) {
                     lCell(row.title, w: iW, bg: rowBg(idx))
                     ForEach(row.amounts.indices, id: \.self) { j in
-                        dCell(row.amounts[j], w: mW, bg: rowBg(idx), highlight: j == myColumnIndex)
+                        dCell(row.amounts[j], w: mW, bg: rowBg(idx), highlight: j == myCol)
                     }
                     dCell(row.total, w: tW, bg: rowBg(idx))
                 }
             }
 
             // ── 大家要付的 小計 ───────────────────────────────────
-            let sub = evSubtotals
+            let sub = sheet.subtotals
             HStack(spacing: 0) {
                 lCell("個人花費", w: iW, bg: amberColor, bold: true)
                 ForEach(sub.indices, id: \.self) { i in
-                    netCell(sub[i], w: mW, highlight: i == myColumnIndex)
+                    netCell(sub[i], w: mW, highlight: i == myCol)
                 }
-                netCell(sub.reduce(0, +), w: tW)
+                netCell(sheet.subtotalTotal, w: tW)
             }
 
             // ── 有人先墊 ─────────────────────────────────────────
@@ -328,7 +336,7 @@ struct ExpenseSpreadsheetView: View {
                 HStack(spacing: 0) {
                     lCell(row.title, w: iW, bg: rowBg(idx))
                     ForEach(row.amounts.indices, id: \.self) { j in
-                        dCell(row.amounts[j], w: mW, bg: rowBg(idx), highlight: j == myColumnIndex)
+                        dCell(row.amounts[j], w: mW, bg: rowBg(idx), highlight: j == myCol)
                     }
                     dCell(row.total, w: tW, bg: rowBg(idx))
                 }
@@ -338,9 +346,9 @@ struct ExpenseSpreadsheetView: View {
             HStack(spacing: 0) {
                 lCell("應付/應收", w: iW, bg: amberColor, bold: true)
                 ForEach(net.indices, id: \.self) { i in
-                    netCell(net[i], w: mW, highlight: i == myColumnIndex)
+                    netCell(net[i], w: mW, highlight: i == myCol)
                 }
-                dCell(0, w: tW, bg: amberColor)
+                dCell("0", w: tW, bg: amberColor)
             }
         }
     }
@@ -350,7 +358,7 @@ struct ExpenseSpreadsheetView: View {
         HStack(spacing: 0) {
             hCell("品項", w: iW)
             ForEach(Array(sortedMembers.enumerated()), id: \.element.persistentModelID) { i, m in
-                hCell(m.name, w: mW, highlight: i == myColumnIndex)
+                hCell(m.name, w: mW, highlight: i == myCol)
             }
             hCell("總價", w: tW)
         }
@@ -363,12 +371,12 @@ struct ExpenseSpreadsheetView: View {
         VStack(alignment: .leading, spacing: 0) {
             hCell("品項", w: iW)
             secLeftCell("大家要付的")
-            ForEach(Array(evRows.enumerated()), id: \.element.id) { idx, row in
+            ForEach(Array(sheet.evRows.enumerated()), id: \.element.id) { idx, row in
                 lCell(row.title, w: iW, bg: rowBg(idx))
             }
             lCell("個人花費", w: iW, bg: amberColor, bold: true)
             secLeftCell("有人先墊")
-            ForEach(Array(puRows.enumerated()), id: \.element.id) { idx, row in
+            ForEach(Array(sheet.puRows.enumerated()), id: \.element.id) { idx, row in
                 lCell(row.title, w: iW, bg: rowBg(idx))
             }
             lCell("應付/應收", w: iW, bg: amberColor, bold: true)
@@ -424,8 +432,8 @@ struct ExpenseSpreadsheetView: View {
             .border(Color(.systemGray4), width: 0.5)
     }
 
-    private func dCell(_ value: Decimal, w: CGFloat, bg: Color, highlight: Bool = false) -> some View {
-        Text(fmt(value))
+    private func dCell(_ text: String, w: CGFloat, bg: Color, highlight: Bool = false) -> some View {
+        Text(text)
             .font(.system(size: fS, weight: highlight ? .bold : .semibold))
             .foregroundStyle(Color.black)
             .monospacedDigit()
@@ -435,8 +443,8 @@ struct ExpenseSpreadsheetView: View {
             .border(Color(.systemGray4), width: 0.5)
     }
 
-    private func netCell(_ value: Decimal, w: CGFloat, highlight: Bool = false) -> some View {
-        Text(fmt(value))
+    private func netCell(_ text: String, w: CGFloat, highlight: Bool = false) -> some View {
+        Text(text)
             .font(.system(size: fS, weight: highlight ? .heavy : .bold))
             .monospacedDigit()
             .foregroundStyle(Color.black)
@@ -444,13 +452,5 @@ struct ExpenseSpreadsheetView: View {
             .background(highlight ? Color.teal.opacity(0.25) : Color.clear)
             .background(amberColor)
             .border(Color(.systemGray4), width: 0.5)
-    }
-
-    private func fmt(_ value: Decimal) -> String {
-        let scale = Decimal.currencyFractionDigits(group.baseCurrencyCode)
-        var rounded = Decimal()
-        var mutable = value
-        NSDecimalRound(&rounded, &mutable, scale, .plain)
-        return NSDecimalNumber(decimal: rounded).stringValue
     }
 }

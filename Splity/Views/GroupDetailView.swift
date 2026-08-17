@@ -96,9 +96,13 @@ struct GroupDetailView: View {
     }
 
     private var membersSection: some View {
-        Section("成員") {
+        // 餘額整個 Section 只算一次；先前 memberRow 每列各自重算全帳本
+        // （O(花費×分帳) × 成員數），大帳本進頁面會明顯卡住
+        let balances = netBalances
+        let hasActive = !activeExpensesEmpty
+        return Section("成員") {
             ForEach(sortedMembers) { member in
-                memberRow(member)
+                memberRow(member, balance: hasActive ? (balances[member] ?? 0) : nil)
             }
             .onDelete(perform: deleteMembers)
 
@@ -263,7 +267,7 @@ struct GroupDetailView: View {
 
     // MARK: - Member Row
 
-    private func memberRow(_ member: Member) -> some View {
+    private func memberRow(_ member: Member, balance: Decimal?) -> some View {
         HStack(spacing: 12) {
             ZStack {
                 Circle()
@@ -278,8 +282,7 @@ struct GroupDetailView: View {
 
             Spacer()
 
-            if !group.expenses.filter({ !$0.archived }).isEmpty {
-                let balance = netBalances[member] ?? 0
+            if let balance {
                 if balance == 0 {
                     Text("已平衡")
                         .font(.caption)
