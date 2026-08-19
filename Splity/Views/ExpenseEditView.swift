@@ -125,7 +125,7 @@ struct ExpenseEditView: View {
             }
 
             // MARK: - Split Members
-            Section("分帳成員") {
+            Section {
                 ForEach(viewModel.members) { member in
                     HStack {
                         Button {
@@ -169,6 +169,15 @@ struct ExpenseEditView: View {
                         Text("/ \(total, format: .currency(code: inputCurrencyCode))")
                             .foregroundStyle(.secondary)
                     }
+                }
+            } header: {
+                HStack {
+                    Text("分帳成員")
+                    Spacer()
+                    Button(viewModel.allMembersSelected ? "全部取消" : "全選") {
+                        viewModel.toggleSelectAll()
+                    }
+                    .font(.caption)
                 }
             }
 

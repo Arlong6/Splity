@@ -147,6 +147,23 @@ final class ExpenseEditViewModel {
         }
     }
 
+    var allMembersSelected: Bool {
+        !members.isEmpty && selectedMemberIDs.count == members.count
+    }
+
+    /// 全選/全不選交替。全選時保留已選成員原本輸入的自訂金額。
+    func toggleSelectAll() {
+        if allMembersSelected {
+            selectedMemberIDs.removeAll()
+            customAmounts.removeAll()
+        } else {
+            for member in members where !selectedMemberIDs.contains(member.id) {
+                selectedMemberIDs.insert(member.id)
+                customAmounts[member.id] = ""
+            }
+        }
+    }
+
     /// 切到外幣時自動抓「過去 5 日最低匯率」鎖定。失敗會把 rateFetchFailed 設成 true。
     @MainActor
     func refreshExchangeRate() async {
