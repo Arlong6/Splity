@@ -7,7 +7,7 @@ help:
 	@echo ""
 	@echo "Splity 可用指令："
 	@echo "  make test              執行單元測試"
-	@echo "  make test-ui           執行 UI 測試（iPhone 16 模擬器）"
+	@echo "  make test-ui           執行 UI 測試（iPhone 16 Pro 模擬器）"
 	@echo "  make test-all          執行全部測試"
 	@echo "  make release           完整上架流程（測試 → 封存 → 上傳）"
 	@echo "  make release-fast      跳過測試直接上架"
@@ -20,21 +20,21 @@ help:
 test:
 	xcodebuild test \
 	  -scheme Splity \
-	  -destination 'platform=iOS Simulator,name=iPhone 16' \
+	  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
 	  -only-testing:SplityTests \
 	  -quiet
 
 test-ui:
 	xcodebuild test \
 	  -scheme Splity \
-	  -destination 'platform=iOS Simulator,name=iPhone 16' \
+	  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
 	  -only-testing:SplityUITests \
 	  -quiet
 
 test-all:
 	xcodebuild test \
 	  -scheme Splity \
-	  -destination 'platform=iOS Simulator,name=iPhone 16' \
+	  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
 	  -quiet
 
 # ── 上架 ──────────────────────────────────────────────────────────────────────

@@ -239,6 +239,26 @@ final class FirebaseSharingManager {
         ])
     }
 
+    /// 永久移除花費：rules 禁止 client 硬刪文件（防惡意刪庫），改寫 isPurged 墓碑——
+    /// 新版 client 合併時看到即刪本地且永不重建；同時從舊陣列鏡像移除。
+    /// 已知限制：尚未更新的舊版 client 看不懂墓碑，若之後重推該筆會使其復活
+    /// （再刪一次即可；等大家更新後自然收斂）。
+    func purgeExpense(expenseId: String, groupFirestoreId: String) async {
+        guard FirebaseApp.app() != nil else { return }
+        try? await signInAnonymously()
+        let groupRef = db.collection("groups").document(groupFirestoreId)
+        // setData(merge:) 而非 updateData：尚未惰性遷移的花費沒有子集合文件，merge 可一併建立墓碑
+        try? await groupRef.collection("expenses").document(expenseId)
+            .setData(["id": expenseId, "isPurged": true, "isDeleted": true], merge: true)
+        _ = try? await db.runTransaction { txn, _ in
+            guard let snap = try? txn.getDocument(groupRef),
+                  var expenses = snap.data()?["expenses"] as? [[String: Any]] else { return nil }
+            expenses.removeAll { ($0["id"] as? String) == expenseId }
+            txn.updateData(["expenses": expenses], forDocument: groupRef)
+            return nil
+        }
+    }
+
     /// 只推送 name/isSettled/baseCurrencyCode，完全不碰 members 陣列——
     /// 給「成員沒變」的路徑（列表結清/改名）用，避免整包覆寫洗掉併發的認領/新成員。
     func pushGroupScalars(for group: Group) async throws {
@@ -412,8 +432,17 @@ final class FirebaseSharingManager {
         let memberMap = Dictionary(uniqueKeysWithValues: group.members.map { ($0.id, $0) })
 
         for eData in expensesData {
-            guard let idStr = eData["id"] as? String, let uuid = UUID(uuidString: idStr),
-                  let title = eData["title"] as? String,
+            guard let idStr = eData["id"] as? String, let uuid = UUID(uuidString: idStr) else { continue }
+            // 墓碑:被永久移除的花費 → 刪本地、絕不重建
+            // (rules 禁止 client 硬刪文件,永久刪除改用 isPurged 標記)
+            if eData["isPurged"] as? Bool == true {
+                if let existing = group.expenses.first(where: { $0.id == uuid }) {
+                    group.expenses.removeAll { $0.id == uuid }
+                    modelContext.delete(existing)
+                }
+                continue
+            }
+            guard let title = eData["title"] as? String,
                   let totalStr = eData["totalAmount"] as? String,
                   let total = Decimal(string: totalStr) else { continue }
             let payerIdStr = eData["payerId"] as? String ?? ""

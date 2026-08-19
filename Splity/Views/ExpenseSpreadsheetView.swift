@@ -159,16 +159,20 @@ struct ExpenseSpreadsheetView: View {
                 uniquingKeysWith: { first, _ in first }
             )
             var amounts: [String] = []; amounts.reserveCapacity(ms.count)
+            var rowSum = Decimal(0)
             for (j, m) in ms.enumerated() {
                 let v = byMember[m.id] ?? 0
                 subs[j] += v
+                rowSum += v
                 amounts.append(f(v))
             }
-            ev.append(SheetRow(id: exp.id, title: exp.title, amounts: amounts, total: f(exp.totalAmount)))
+            // 總價與付款人欄用 splits 加總(而非 totalAmount):均分進位時兩者會差
+            // 幾塊錢(如 100/3→34×3=102),CSV 與應付/應收列都以 splits 為準,對齊之
+            ev.append(SheetRow(id: exp.id, title: exp.title, amounts: amounts, total: f(rowSum)))
             pu.append(SheetRow(
                 id: exp.id, title: exp.title,
-                amounts: ms.map { m in exp.paidBy?.id == m.id ? f(-exp.totalAmount) : f(0) },
-                total: f(-exp.totalAmount)
+                amounts: ms.map { m in exp.paidBy?.id == m.id ? f(-rowSum) : f(0) },
+                total: f(-rowSum)
             ))
         }
         let bal = SettlementCalculator.computeNetBalances(expenses: exps)

@@ -30,7 +30,9 @@ struct ChangeBaseCurrencyView: View {
     /// 規則：外幣花費用其 originalCurrencyCode；本地幣花費用 oldBase。
     private var sourceCurrencies: [String] {
         var set = Set<String>()
-        for expense in group.expenses where !expense.archived {
+        // 含已刪除(archived)花費：它們仍可被還原，不一起換算的話還原後會把
+        // 舊幣種金額混進新基準幣的帳本，污染結算
+        for expense in group.expenses {
             if let oc = expense.originalCurrencyCode {
                 set.insert(oc)
             } else {
@@ -218,7 +220,8 @@ struct ChangeBaseCurrencyView: View {
 
         let baseScale = Decimal.currencyFractionDigits(newBase)
 
-        for expense in group.expenses where !expense.archived {
+        // 含 archived：見 sourceCurrencies 的說明（還原污染防護）
+        for expense in group.expenses {
             let sourceCode = expense.originalCurrencyCode ?? oldBase
             let originalAmount = expense.originalAmount ?? expense.totalAmount
             guard let rate = effectiveRate(for: sourceCode) else { continue }

@@ -68,7 +68,18 @@ struct HistoryView: View {
                             .padding(.vertical, 4)
                         }
                         .onDelete { offsets in
-                            offsets.forEach { modelContext.delete(deletedExpenses[$0]) }
+                            offsets.forEach { i in
+                                let expense = deletedExpenses[i]
+                                // 共享帳本要先在雲端立墓碑,否則下次同步又長回來
+                                if let g = expense.group, g.isShared, let fid = g.firestoreGroupId {
+                                    let eid = expense.id.uuidString
+                                    Task {
+                                        await FirebaseSharingManager.shared.purgeExpense(
+                                            expenseId: eid, groupFirestoreId: fid)
+                                    }
+                                }
+                                modelContext.delete(expense)
+                            }
                         }
                     } header: {
                         Text("已刪除的花費")

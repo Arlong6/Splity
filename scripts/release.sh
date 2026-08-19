@@ -101,7 +101,7 @@ if [ "$SKIP_TESTS" = false ]; then
   log "執行單元測試..."
   xcodebuild test \
     -scheme "$SCHEME" \
-    -destination 'platform=iOS Simulator,name=iPhone 16' \
+    -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
     -only-testing:SplityTests \
     -quiet \
     || fail "單元測試失敗，已中止上架"
