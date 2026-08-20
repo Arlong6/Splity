@@ -94,6 +94,11 @@ final class ExpenseEditViewModel {
         self.group = group
         self.existingExpense = expense
         self.selectedCurrencyCode = group.baseCurrencyCode
+        // 新增花費時套用本裝置為此帳本設定的記帳預設幣種（如旅行時預設外幣）；
+        // 編輯既有花費維持其原幣種（下方 if let expense 分支會覆寫）
+        if expense == nil, let preferred = GroupPrefs.defaultInputCurrency(for: group.id) {
+            self.selectedCurrencyCode = preferred
+        }
 
         if let expense {
             title = expense.title

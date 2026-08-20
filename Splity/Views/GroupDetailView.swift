@@ -27,6 +27,11 @@ struct GroupDetailView: View {
     @State private var showingClaimPicker = false
     @State private var claimForShare = false
     @State private var showingChangeBase = false
+    // 本裝置的記帳預設幣種（@State 鏡射 GroupPrefs,讓選單標籤即時更新）
+    @State private var defaultInputCurrency: String?
+    @State private var showingDefaultCurrencyPicker = false
+    @State private var defaultCurrencySelection = ""
+    @State private var defaultCurrencyInitial = ""
 
     var sortedMembers: [Member] {
         group.members.sorted { $0.name < $1.name }
@@ -54,7 +59,17 @@ struct GroupDetailView: View {
             .toolbar { toolbarContent }
             .modifier(sheetsModifier)
             .modifier(alertsModifier)
+            .sheet(isPresented: $showingDefaultCurrencyPicker, onDismiss: {
+                // 只在真的選了不同幣種時寫入;直接滑掉(未選)不動設定
+                if defaultCurrencySelection != defaultCurrencyInitial {
+                    GroupPrefs.setDefaultInputCurrency(defaultCurrencySelection, for: group.id)
+                    defaultInputCurrency = defaultCurrencySelection
+                }
+            }) {
+                CurrencyPickerView(selection: $defaultCurrencySelection)
+            }
             .onAppear {
+                defaultInputCurrency = GroupPrefs.defaultInputCurrency(for: group.id)
                 if group.isShared, subscription == nil {
                     subscription = sharingManager.listenToChanges(for: group, modelContext: modelContext)
                 }
@@ -222,6 +237,21 @@ struct GroupDetailView: View {
                 } label: {
                     Label("結算幣別：\(group.baseCurrencyCode)", systemImage: "dollarsign.arrow.circlepath")
                 }
+                Button {
+                    defaultCurrencyInitial = defaultInputCurrency ?? group.baseCurrencyCode
+                    defaultCurrencySelection = defaultCurrencyInitial
+                    showingDefaultCurrencyPicker = true
+                } label: {
+                    Label("記帳預設幣種：\(defaultInputCurrency ?? "跟隨結算")", systemImage: "banknote")
+                }
+                if defaultInputCurrency != nil {
+                    Button {
+                        GroupPrefs.setDefaultInputCurrency(nil, for: group.id)
+                        defaultInputCurrency = nil
+                    } label: {
+                        Label("預設幣種改回跟隨結算", systemImage: "arrow.uturn.backward")
+                    }
+                }
                 if group.isShared {
                     Button { showingActivityLog = true } label: {
                         Label("變更紀錄", systemImage: "clock.arrow.circlepath")
@@ -229,6 +259,7 @@ struct GroupDetailView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis.circle")
+                    .accessibilityLabel("更多選項")
             }
             Button { showingSpreadsheet = true } label: {
                 Label("表格", systemImage: "tablecells")
