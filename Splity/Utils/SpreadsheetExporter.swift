@@ -86,7 +86,9 @@ enum SpreadsheetExporter {
         return "\u{FEFF}" + lines.joined(separator: "\r\n")
     }
 
-    private static func escape(_ value: String) -> String {
+    // nonisolated：純函式、無共享狀態。標記後才能安全當作函式值傳給 `.map(escape)`
+    // （否則在 MainActor 預設隔離下，傳遞函式參考會擲出 actor 隔離警告）。
+    private nonisolated static func escape(_ value: String) -> String {
         var v = value
         // 防 CSV/試算表公式注入：以 = + - @ 開頭的文字欄位前置單引號，避免 Excel/Numbers
         // 把使用者輸入的成員名稱或品項當公式執行（數字欄位走 formatDecimal，不經此函式）。

@@ -433,14 +433,27 @@ final class FirebaseSharingManager {
 
         for eData in expensesData {
             guard let idStr = eData["id"] as? String, let uuid = UUID(uuidString: idStr) else { continue }
-            // 墓碑:被永久移除的花費 → 刪本地、絕不重建
-            // (rules 禁止 client 硬刪文件,永久刪除改用 isPurged 標記)
-            if eData["isPurged"] as? Bool == true {
-                if let existing = group.expenses.first(where: { $0.id == uuid }) {
+            let existingExpense = group.expenses.first(where: { $0.id == uuid })
+
+            // 合併決策（墓碑 / last-write-wins）抽在 ExpenseMergePolicy，純邏輯、有單元測試。
+            switch ExpenseMergePolicy.decide(
+                isPurged: eData["isPurged"] as? Bool == true,
+                localUpdatedAt: existingExpense?.updatedAt,
+                remoteUpdatedAt: (eData["updatedAt"] as? Timestamp)?.dateValue()
+            ) {
+            case .purge:
+                // 被永久移除的花費 → 刪本地、絕不重建
+                // (rules 禁止 client 硬刪文件,永久刪除改用 isPurged 標記)
+                if let existing = existingExpense {
                     group.expenses.removeAll { $0.id == uuid }
                     modelContext.delete(existing)
                 }
                 continue
+            case .skip:
+                // 遠端這份比本地已知的舊(如落後的鏡像陣列)→ 不把較新的編輯退回舊值
+                continue
+            case .apply:
+                break
             }
             guard let title = eData["title"] as? String,
                   let totalStr = eData["totalAmount"] as? String,
@@ -450,15 +463,7 @@ final class FirebaseSharingManager {
             let payer = payerId.flatMap { memberMap[$0] }
             let archived = eData["isDeleted"] as? Bool ?? false
 
-            if let existing = group.expenses.first(where: { $0.id == uuid }) {
-                    // Last-write-wins 防護：遠端這份比本地已知的舊（如落後的鏡像陣列），跳過，
-                    // 免得把較新的編輯退回舊值。只在兩邊都有 updatedAt 時比較——遠端沒有
-                    // 時間戳可能是舊版 client 的合法新編輯，仍須照舊合併。
-                    if let localUpdated = existing.updatedAt,
-                       let remoteUpdated = (eData["updatedAt"] as? Timestamp)?.dateValue(),
-                       remoteUpdated < localUpdated {
-                        continue
-                    }
+            if let existing = existingExpense {
                     if existing.title != title { existing.title = title }
                     if existing.totalAmount != total { existing.totalAmount = total }
                     if existing.paidBy?.id != payer?.id { existing.paidBy = payer }

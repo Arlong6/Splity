@@ -600,3 +600,84 @@ struct SplitModePersistenceTests {
         #expect(vm.isEvenSplit == true) // 金額相等 → 推斷為均分（沿用舊行為）
     }
 }
+
+// MARK: - 遠端花費合併決策（墓碑 / last-write-wins）
+
+struct ExpenseMergePolicyTests {
+
+    private func date(_ offset: TimeInterval) -> Date {
+        Date(timeIntervalSince1970: 1_700_000_000 + offset)
+    }
+
+    @Test("遠端較舊 → 跳過，不把較新的本地編輯退回舊值")
+    func staleRemoteIsSkipped() {
+        let decision = ExpenseMergePolicy.decide(
+            isPurged: false,
+            localUpdatedAt: date(100),
+            remoteUpdatedAt: date(50))
+        #expect(decision == .skip)
+    }
+
+    @Test("遠端較新 → 套用")
+    func freshRemoteIsApplied() {
+        let decision = ExpenseMergePolicy.decide(
+            isPurged: false,
+            localUpdatedAt: date(50),
+            remoteUpdatedAt: date(100))
+        #expect(decision == .apply)
+    }
+
+    @Test("時間戳相等 → 套用（只有嚴格較舊才擋）")
+    func equalTimestampsApply() {
+        let decision = ExpenseMergePolicy.decide(
+            isPurged: false,
+            localUpdatedAt: date(100),
+            remoteUpdatedAt: date(100))
+        #expect(decision == .apply)
+    }
+
+    @Test("遠端沒有時間戳（舊版 client 的合法編輯）→ 仍要套用")
+    func remoteWithoutTimestampApplies() {
+        let decision = ExpenseMergePolicy.decide(
+            isPurged: false,
+            localUpdatedAt: date(100),
+            remoteUpdatedAt: nil)
+        #expect(decision == .apply)
+    }
+
+    @Test("本地是 1.7.5 前的舊資料（無時間戳）→ 無從比較，套用遠端")
+    func localWithoutTimestampApplies() {
+        let decision = ExpenseMergePolicy.decide(
+            isPurged: false,
+            localUpdatedAt: nil,
+            remoteUpdatedAt: date(50))
+        #expect(decision == .apply)
+    }
+
+    @Test("兩邊都沒有時間戳 → 套用")
+    func bothWithoutTimestampApply() {
+        let decision = ExpenseMergePolicy.decide(
+            isPurged: false,
+            localUpdatedAt: nil,
+            remoteUpdatedAt: nil)
+        #expect(decision == .apply)
+    }
+
+    @Test("墓碑優先於 LWW：即使遠端時間戳較舊也要刪除")
+    func purgeBeatsStaleTimestamp() {
+        let decision = ExpenseMergePolicy.decide(
+            isPurged: true,
+            localUpdatedAt: date(100),
+            remoteUpdatedAt: date(50))
+        #expect(decision == .purge)
+    }
+
+    @Test("墓碑在沒有任何時間戳時同樣生效")
+    func purgeWithoutTimestamps() {
+        let decision = ExpenseMergePolicy.decide(
+            isPurged: true,
+            localUpdatedAt: nil,
+            remoteUpdatedAt: nil)
+        #expect(decision == .purge)
+    }
+}

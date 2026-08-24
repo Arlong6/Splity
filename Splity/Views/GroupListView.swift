@@ -335,7 +335,9 @@ struct GroupListView: View {
         .padding(.vertical, 20)
     }
 
-    private func statBadge(icon: String, value: String, label: String) -> some View {
+    // label 必須是 LocalizedStringKey：宣告成 String 的話 Text(label) 會被當成已在地化的
+    // 字面內容直接顯示，英文版就會漏出中文（統計列先前就是這樣）。
+    private func statBadge(icon: String, value: String, label: LocalizedStringKey) -> some View {
         HStack(spacing: 6) {
             Image(systemName: icon)
                 .font(.caption)
