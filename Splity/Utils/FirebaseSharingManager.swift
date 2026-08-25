@@ -61,6 +61,20 @@ final class FirebaseSharingManager {
         return String((0..<6).map { _ in charset[Int.random(in: 0..<charset.count)] })
     }
 
+    /// 邀請碼有效期：90 天。外流的碼會自然失效，過期後由擁有者在分享面板重新產生。
+    static let inviteCodeLifetime: TimeInterval = 90 * 24 * 60 * 60
+
+    /// 產生不重複的邀請碼：碰撞極罕見，仍檢查避免劫持既有碼（配合 rules update:false 雙保險）
+    private func uniqueCode() async -> String {
+        var code = generateCode()
+        for _ in 0..<5 {
+            let existing = try? await db.collection("inviteCodes").document(code).getDocument()
+            if existing?.exists != true { break }
+            code = generateCode()
+        }
+        return code
+    }
+
     /// Creates invite code for a group. Uploads group data to Firestore if not already shared.
     /// Returns the 6-char invite code.
     func createInviteCode(for group: Group) async throws -> String {
@@ -70,16 +84,16 @@ final class FirebaseSharingManager {
         // 已分享過就直接回傳邀請碼，不重推資料——花費平時已由 pushExpense 逐筆同步，
         // 這裡整包重推反而會把「本機尚未收到的較新遠端編輯」蓋回舊值。
         if let existingCode = group.inviteCode, group.firestoreGroupId != nil {
+            // 已過期就直接換一組新的（擁有者本來就有權重新產生，省得他先看到一組無效碼）。
+            // expiresAt 為 nil = 1.7.8 之前建立的碼，沒有到期日，永遠沿用。
+            if let expiry = group.inviteCodeExpiresAt, expiry <= Date() {
+                return try await regenerateInviteCode(for: group)
+            }
             return existingCode
         }
 
-        // 產生不重複的邀請碼：碰撞極罕見，仍檢查避免劫持既有碼（配合 rules update:false 雙保險）
-        var code = generateCode()
-        for _ in 0..<5 {
-            let existing = try? await db.collection("inviteCodes").document(code).getDocument()
-            if existing?.exists != true { break }
-            code = generateCode()
-        }
+        let code = await uniqueCode()
+        let expiresAt = Date().addingTimeInterval(Self.inviteCodeLifetime)
 
         let groupData = serializeGroup(group, ownerId: userId, inviteCode: code)
         // 原子寫入 group 文件 + 邀請碼，任一失敗都不留孤兒文件
@@ -89,7 +103,8 @@ final class FirebaseSharingManager {
         batch.setData([
             "groupId": docRef.documentID,
             "groupName": group.name,
-            "createdAt": FieldValue.serverTimestamp()
+            "createdAt": FieldValue.serverTimestamp(),
+            "expiresAt": Timestamp(date: expiresAt)
         ], forDocument: db.collection("inviteCodes").document(code))
         try await batch.commit()
 
@@ -97,9 +112,41 @@ final class FirebaseSharingManager {
             group.firestoreGroupId = docRef.documentID
             group.firebaseOwnerId = userId
             group.inviteCode = code
+            group.inviteCodeExpiresAt = expiresAt
         }
 
         await logActivity(for: group, action: .sharedGroup, target: group.name)
+        return code
+    }
+
+    /// 重新產生邀請碼（過期後由擁有者觸發）。舊碼文件依規則不可改也不可刪，會留在
+    /// Firestore 直到自己過期；group 文件的 `inviteCode` 指向新碼，之後分享的都是新碼。
+    @discardableResult
+    func regenerateInviteCode(for group: Group) async throws -> String {
+        try await signInAnonymously()
+        guard let firestoreId = group.firestoreGroupId else {
+            // 還沒分享過 → 等同首次建立（不會遞迴回來：早退分支需要 firestoreGroupId 非 nil）
+            return try await createInviteCode(for: group)
+        }
+
+        let code = await uniqueCode()
+        let expiresAt = Date().addingTimeInterval(Self.inviteCodeLifetime)
+
+        let batch = db.batch()
+        batch.setData([
+            "groupId": firestoreId,
+            "groupName": group.name,
+            "createdAt": FieldValue.serverTimestamp(),
+            "expiresAt": Timestamp(date: expiresAt)
+        ], forDocument: db.collection("inviteCodes").document(code))
+        batch.updateData(["inviteCode": code],
+                         forDocument: db.collection("groups").document(firestoreId))
+        try await batch.commit()
+
+        await MainActor.run {
+            group.inviteCode = code
+            group.inviteCodeExpiresAt = expiresAt
+        }
         return code
     }
 
@@ -115,6 +162,14 @@ final class FirebaseSharingManager {
             throw SharingError.inviteCodeNotFound
         }
 
+        // 到期檢查。`expiresAt` 不存在 = 1.7.8 之前建立的碼，沒有到期日，照舊放行。
+        // 誠實標注：這是 client 端的把關（rules 無法在讀 groups 時得知用了哪組邀請碼），
+        // 擋的是「外流的舊碼被一般使用者拿去加入」，不是有心人直繫 API 的越權讀取。
+        let codeExpiresAt = (data["expiresAt"] as? Timestamp)?.dateValue()
+        if let codeExpiresAt, codeExpiresAt <= Date() {
+            throw SharingError.inviteCodeExpired
+        }
+
         let groupDoc = try await db.collection("groups").document(groupId).getDocument()
         guard groupDoc.exists, let groupData = groupDoc.data() else {
             throw SharingError.groupNotFound
@@ -127,12 +182,14 @@ final class FirebaseSharingManager {
                 existing.firestoreGroupId = groupId
                 existing.firebaseOwnerId = groupData["ownerId"] as? String
                 existing.inviteCode = upperCode
+                existing.inviteCodeExpiresAt = codeExpiresAt
                 try modelContext.save()
                 return
             }
         }
 
         let group = try deserializeGroup(from: groupData, firestoreId: groupId, inviteCode: upperCode)
+        group.inviteCodeExpiresAt = codeExpiresAt
         modelContext.insert(group)
         for member in group.members { modelContext.insert(member) }
         for expense in group.expenses {
@@ -891,12 +948,14 @@ enum ActivitySeenStore {
 enum SharingError: LocalizedError {
     case notAuthenticated
     case inviteCodeNotFound
+    case inviteCodeExpired
     case groupNotFound
 
     var errorDescription: String? {
         switch self {
         case .notAuthenticated: return "請確認網路連線後再試"
         case .inviteCodeNotFound: return "找不到此邀請碼，請確認輸入是否正確"
+        case .inviteCodeExpired: return "邀請碼已過期，請向對方索取新的邀請碼"
         case .groupNotFound: return "找不到共享的帳目"
         }
     }

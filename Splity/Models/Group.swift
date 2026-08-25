@@ -11,6 +11,8 @@ final class Group {
     var firestoreGroupId: String? = nil
     var firebaseOwnerId: String? = nil
     var inviteCode: String? = nil
+    /// 邀請碼到期時間（1.7.8+）。`nil` = 舊版建立、沒有到期日的邀請碼 → 永不過期（向後相容）。
+    var inviteCodeExpiresAt: Date? = nil
 
     var baseCurrencyCode: String = "TWD"
 

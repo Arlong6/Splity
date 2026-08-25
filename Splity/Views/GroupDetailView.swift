@@ -554,6 +554,18 @@ private struct GroupDetailSheets: ViewModifier {
     let inviteCode: String?
     var onClaimSelected: () -> Void
 
+    /// 傳給 InviteShareSheet 的「重新產生邀請碼」動作；非擁有者拿到 nil，面板就不顯示該按鈕。
+    ///
+    /// 只有擁有者能重新產生：加入者本地存的是他當初 join 用的那組碼，mergeGroupMeta 不會把
+    /// 擁有者換發的新碼同步回來，讓他按下去只會把擁有者正在流通的碼換掉，而對方毫無提示。
+    /// （寫成 `isOwner ? {...} : nil` 三元會讓型別推論失敗——專案是 MainActor 預設隔離——
+    /// 必須用早退。）
+    private var regenerateAction: (() async throws -> Void)? {
+        guard let uid = sharingManager.currentUserId,
+              group.firebaseOwnerId == uid else { return nil }
+        return { try await sharingManager.regenerateInviteCode(for: group) }
+    }
+
     func body(content: Content) -> some View {
         content
             .sheet(isPresented: $showingAddExpense) {
@@ -568,8 +580,14 @@ private struct GroupDetailSheets: ViewModifier {
                     .environment(sharingManager)
             }
             .sheet(isPresented: $showingShareSheet) {
-                if let code = inviteCode {
-                    InviteShareSheet(groupName: group.name, inviteCode: code)
+                // 以 group.inviteCode 優先：重新產生後 @Model 會直接把新碼推回這個 sheet。
+                if let code = group.inviteCode ?? inviteCode {
+                    InviteShareSheet(
+                        groupName: group.name,
+                        inviteCode: code,
+                        expiresAt: group.inviteCodeExpiresAt,
+                        onRegenerate: regenerateAction
+                    )
                 }
             }
             .sheet(isPresented: $showingActivityLog) {
