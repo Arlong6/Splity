@@ -64,12 +64,21 @@ enum SettlementCalculator {
                     to: creditors[ci].member,
                     amount: displayAmount
                 ))
-            }
 
-            // 以「顯示金額」扣減（而非未進位的 transfer），讓顯示與內部一致，
-            // 避免分數餘額被配對成多餘的進位轉帳。
-            debtors[di].amount -= displayAmount
-            creditors[ci].amount -= displayAmount
+                // 以「顯示金額」扣減（而非未進位的 transfer），讓顯示與內部一致，
+                // 避免分數餘額被配對成多餘的進位轉帳。
+                debtors[di].amount -= displayAmount
+                creditors[ci].amount -= displayAmount
+            } else {
+                // 小數幣別（USD 等，四捨五入）遇到次分位殘值時 displayAmount 會是 0，
+                // 扣 0 兩邊金額都不變、索引也不前進 → 無窮迴圈把主執行緒鎖死。
+                // 把較小的一方視為結清，確保每輪至少前進一個索引。
+                if debtors[di].amount <= creditors[ci].amount {
+                    debtors[di].amount = 0
+                } else {
+                    creditors[ci].amount = 0
+                }
+            }
 
             if debtors[di].amount <= 0 { di += 1 }
             if creditors[ci].amount <= 0 { ci += 1 }

@@ -465,6 +465,35 @@ struct SettlementRoundingTests {
         let total = settlements.reduce(Decimal(0)) { $0 + $1.amount }
         #expect(total == 1)
     }
+
+    /// 小數幣別的次分位殘值不可讓貪婪迴圈原地打轉。
+    /// USD 帳本 10.00 三人均分、splits 未進位（10/3 = 3.3333…）：第二輪待轉金額只剩
+    /// 0.00333，四捨五入到 2 位小數後為 0，舊版兩邊各扣 0、索引都不前進 → 主執行緒
+    /// 永久凍結（開啟結算畫面即卡死，只能強制關閉 app）。
+    /// ⚠️ 若此修正被回歸，本測試會直接掛住而非失敗——那本身就是徵兆。
+    @Test("次分位殘值不會讓結算迴圈卡死")
+    func subCentResidualTerminates() throws {
+        let container = try makeContainer()
+        let ctx = ModelContext(container)
+
+        let a = Member(name: "A"); ctx.insert(a)
+        let b = Member(name: "B"); ctx.insert(b)
+        let c = Member(name: "C"); ctx.insert(c)
+
+        let third = Decimal(10) / Decimal(3)
+        let expense = makeExpense(
+            title: "殘值", total: 10, payer: a,
+            splits: [(a, third), (b, third), (c, third)],
+            ctx: ctx
+        )
+
+        let settlements = SettlementCalculator.calculateSettlements(expenses: [expense], currencyCode: "USD")
+
+        // B、C 各還 3.33；次分位殘值（0.0066）捨去，不產生多餘轉帳。
+        #expect(settlements.count == 2)
+        #expect(settlements.allSatisfy { $0.to === a })
+        #expect(settlements.allSatisfy { $0.amount == Decimal(string: "3.33")! })
+    }
 }
 
 // MARK: - 外幣自訂拆帳進位
