@@ -7,6 +7,13 @@ struct Settlement: Identifiable {
     let amount: Decimal
 }
 
+/// 泛型轉帳結果：群組結算用 Member 當 ID，快速分帳用參與者 UUID。
+struct Transfer<ID: Hashable> {
+    let from: ID
+    let to: ID
+    let amount: Decimal
+}
+
 enum SettlementMode {
     case minimized  // 最少轉帳次數
     case hub        // 集中付給一人
@@ -34,24 +41,43 @@ enum SettlementCalculator {
         return balances
     }
 
+    /// 最少轉帳次數。Member 淨額 → 泛型核心 → Settlement。
     static func calculateSettlements(expenses: [Expense], currencyCode: String = "TWD") -> [Settlement] {
-        let balances = computeNetBalances(expenses: expenses)
+        let balances = computeNetBalances(expenses: expenses).map { (id: $0.key, balance: $0.value) }
+        return settle(balances: balances, currencyCode: currencyCode)
+            .map { Settlement(from: $0.from, to: $0.to, amount: $0.amount) }
+    }
 
-        var debtors: [(member: Member, amount: Decimal)] = []
-        var creditors: [(member: Member, amount: Decimal)] = []
+    /// Hub 模式：所有欠錢的人集中付給墊最多的人，再由那人分給其他墊錢的人
+    static func calculateHubSettlements(expenses: [Expense], currencyCode: String = "TWD") -> [Settlement] {
+        let balances = computeNetBalances(expenses: expenses).map { (id: $0.key, balance: $0.value) }
+        return settleViaHub(balances: balances, currencyCode: currencyCode)
+            .map { Settlement(from: $0.from, to: $0.to, amount: $0.amount) }
+    }
 
-        for (member, balance) in balances {
+    // MARK: - 泛型核心（群組結算與快速分帳共用）
+
+    /// 貪婪配對：把淨額為負的人依序配給淨額為正的人，轉帳次數最少。
+    /// `balances` 的順序即為金額相同時的配對順序（排序為穩定排序）。
+    static func settle<ID: Hashable>(
+        balances: [(id: ID, balance: Decimal)],
+        currencyCode: String
+    ) -> [Transfer<ID>] {
+        var debtors: [(id: ID, amount: Decimal)] = []
+        var creditors: [(id: ID, amount: Decimal)] = []
+
+        for (id, balance) in balances {
             if balance < 0 {
-                debtors.append((member, -balance))
+                debtors.append((id, -balance))
             } else if balance > 0 {
-                creditors.append((member, balance))
+                creditors.append((id, balance))
             }
         }
 
         debtors.sort { $0.amount > $1.amount }
         creditors.sort { $0.amount > $1.amount }
 
-        var settlements: [Settlement] = []
+        var transfers: [Transfer<ID>] = []
         var di = 0, ci = 0
 
         while di < debtors.count && ci < creditors.count {
@@ -59,11 +85,7 @@ enum SettlementCalculator {
             let displayAmount = Decimal.round(transfer, in: currencyCode)
 
             if displayAmount > 0 {
-                settlements.append(Settlement(
-                    from: debtors[di].member,
-                    to: creditors[ci].member,
-                    amount: displayAmount
-                ))
+                transfers.append(Transfer(from: debtors[di].id, to: creditors[ci].id, amount: displayAmount))
 
                 // 以「顯示金額」扣減（而非未進位的 transfer），讓顯示與內部一致，
                 // 避免分數餘額被配對成多餘的進位轉帳。
@@ -84,47 +106,46 @@ enum SettlementCalculator {
             if creditors[ci].amount <= 0 { ci += 1 }
         }
 
-        return settlements
+        return transfers
     }
 
-    /// Hub 模式：所有欠錢的人集中付給墊最多的人，再由那人分給其他墊錢的人
-    static func calculateHubSettlements(expenses: [Expense], currencyCode: String = "TWD") -> [Settlement] {
-        let balances = computeNetBalances(expenses: expenses)
+    /// Hub 模式：所有欠錢的人付給淨額最大的人，再由他分給其他墊錢的人。
+    /// 只有一位債權人時與 `settle` 相同。
+    static func settleViaHub<ID: Hashable>(
+        balances: [(id: ID, balance: Decimal)],
+        currencyCode: String
+    ) -> [Transfer<ID>] {
+        var debtors: [(id: ID, amount: Decimal)] = []
+        var creditors: [(id: ID, amount: Decimal)] = []
 
-        var debtors: [(member: Member, amount: Decimal)] = []
-        var creditors: [(member: Member, amount: Decimal)] = []
-
-        for (member, balance) in balances {
-            if balance < 0 { debtors.append((member, -balance)) }
-            else if balance > 0 { creditors.append((member, balance)) }
+        for (id, balance) in balances {
+            if balance < 0 { debtors.append((id, -balance)) }
+            else if balance > 0 { creditors.append((id, balance)) }
         }
 
-        // 只有一個收款人時跟 minimized 一樣，不需要 hub
         guard creditors.count > 1 else {
-            return calculateSettlements(expenses: expenses, currencyCode: currencyCode)
+            return settle(balances: balances, currencyCode: currencyCode)
         }
 
         creditors.sort { $0.amount > $1.amount }
         let hub = creditors[0]
-        var settlements: [Settlement] = []
+        var transfers: [Transfer<ID>] = []
 
-        // 所有欠錢的人 → Hub
         for debtor in debtors {
             let amount = Decimal.round(debtor.amount, in: currencyCode)
             if amount > 0 {
-                settlements.append(Settlement(from: debtor.member, to: hub.member, amount: amount))
+                transfers.append(Transfer(from: debtor.id, to: hub.id, amount: amount))
             }
         }
 
-        // Hub → 其他收款人
         for creditor in creditors.dropFirst() {
             let amount = Decimal.round(creditor.amount, in: currencyCode)
             if amount > 0 {
-                settlements.append(Settlement(from: hub.member, to: creditor.member, amount: amount))
+                transfers.append(Transfer(from: hub.id, to: creditor.id, amount: amount))
             }
         }
 
-        return settlements
+        return transfers
     }
 }
 

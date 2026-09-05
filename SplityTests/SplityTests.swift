@@ -8,7 +8,7 @@ import Foundation
 private func makeContainer() throws -> ModelContainer {
     let config = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
     return try ModelContainer(
-        for: Group.self, Member.self, Expense.self, ExpenseSplit.self, HistoryRecord.self,
+        for: Group.self, Member.self, Expense.self, ExpenseSplit.self, HistoryRecord.self, QuickSplit.self,
         configurations: config
     )
 }

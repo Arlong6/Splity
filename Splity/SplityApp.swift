@@ -44,7 +44,7 @@ struct SplityApp: App {
             UserDefaults.standard.removePersistentDomain(forName: Bundle.main.bundleIdentifier ?? "")
         }
 
-        let schema = Schema([Group.self, Member.self, Expense.self, ExpenseSplit.self, HistoryRecord.self])
+        let schema = Schema([Group.self, Member.self, Expense.self, ExpenseSplit.self, HistoryRecord.self, QuickSplit.self])
         // Detect unit tests (xctest bundle injected) or UI tests (UserDefaults arg set by test helpers)
         let isTestEnvironment = Bundle.allBundles.contains { $0.bundleURL.pathExtension == "xctest" }
             || UserDefaults.standard.bool(forKey: "IS_UI_TESTING")
@@ -57,7 +57,7 @@ struct SplityApp: App {
             )
             do {
                 container = try ModelContainer(
-                    for: Group.self, Member.self, Expense.self, ExpenseSplit.self, HistoryRecord.self,
+                    for: Group.self, Member.self, Expense.self, ExpenseSplit.self, HistoryRecord.self, QuickSplit.self,
                     configurations: config
                 )
             } catch {
@@ -82,7 +82,7 @@ struct SplityApp: App {
                 // 備份後以全新 store 重試；仍失敗才退回記憶體容器（原始資料仍在 .bak 備份）
                 container = (try? ModelContainer(for: schema, configurations: config))
                     ?? (try! ModelContainer(
-                        for: Group.self, Member.self, Expense.self, ExpenseSplit.self, HistoryRecord.self,
+                        for: Group.self, Member.self, Expense.self, ExpenseSplit.self, HistoryRecord.self, QuickSplit.self,
                         configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
                     ))
             }
