@@ -19,6 +19,7 @@ struct GroupListView: View {
     @State private var groupToRename: Group?
     @State private var renameText = ""
     @State private var showingHistory = false
+    @State private var path = NavigationPath()
     @State private var joinSuccess = false
     @State private var saveError: String?
     @State private var updateChecker = AppUpdateChecker.shared
@@ -30,7 +31,7 @@ struct GroupListView: View {
     private var settledGroups: [Group] { groups.filter { $0.isSettled } }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             groupList
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { toolbarContent }
@@ -39,6 +40,14 @@ struct GroupListView: View {
                 }
                 .navigationDestination(for: Group.self) { group in
                     GroupDetailView(group: group)
+                }
+                // 快速分帳走明確的 path：用 navigationDestination(isPresented:) 推入後，
+                // 子頁的 NavigationLink(value:) 會被標成 selected 卻不 push（實測間歇失效）。
+                .navigationDestination(for: QuickSplitRoute.self) { _ in
+                    QuickSplitListView()
+                }
+                .navigationDestination(for: QuickSplit.self) { split in
+                    QuickSplitResultView(split: split)
                 }
                 .onAppear {
                     updateWidget()
@@ -249,7 +258,10 @@ struct GroupListView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .primaryAction) {
+        ToolbarItemGroup(placement: .primaryAction) {
+            Button { path.append(QuickSplitRoute.list) } label: {
+                Label("快速分帳", systemImage: "person.2.badge.plus")
+            }
             Button { showingAddGroup = true } label: {
                 Label("新增帳目", systemImage: "plus.circle.fill")
             }
@@ -596,4 +608,9 @@ private struct AddGroupSheet: View {
             }
         }
     }
+}
+
+/// 快速分帳的導覽路徑值
+enum QuickSplitRoute: Hashable {
+    case list
 }

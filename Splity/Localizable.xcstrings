@@ -1,6 +1,38 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%@ · %lld 人": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %lld people"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %lld 人"
+          }
+        }
+      }
+    },
+    "%@ → %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ → %@"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ → %@"
+          }
+        }
+      }
+    },
     "%@ 先付": {
       "comment": "A label indicating that a user has paid for an expense.",
       "localizations": {
@@ -14,6 +46,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ 先付"
+          }
+        }
+      }
+    },
+    "%@ 先出金額": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amount paid by %@"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 先出金額"
           }
         }
       }
@@ -331,6 +379,38 @@
         }
       }
     },
+    "例如：週五晚餐": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "e.g. Friday dinner"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "例如：週五晚餐"
+          }
+        }
+      }
+    },
+    "偶爾的飯局不用建群組。輸入誰先出了多少，馬上算出每人應付與誰給誰。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No group needed for a one-off dinner. Enter who paid what and instantly see each person's share and who pays whom."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "偶爾的飯局不用建群組。輸入誰先出了多少，馬上算出每人應付與誰給誰。"
+          }
+        }
+      }
+    },
     "備註": {
       "localizations": {
         "en": {
@@ -375,6 +455,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "儲存失敗"
+          }
+        }
+      }
+    },
+    "先出金額": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amount Paid"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "先出金額"
           }
         }
       }
@@ -562,6 +658,22 @@
         }
       }
     },
+    "剛好平均，不需要轉帳": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Perfectly even, no transfers needed"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "剛好平均，不需要轉帳"
+          }
+        }
+      }
+    },
     "加上日期": {
       "localizations": {
         "en": {
@@ -728,6 +840,22 @@
         }
       }
     },
+    "名稱": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名稱"
+          }
+        }
+      }
+    },
     "品項名稱": {
       "localizations": {
         "en": {
@@ -756,6 +884,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "基本資訊"
+          }
+        }
+      }
+    },
+    "填好成員與金額後，這裡會顯示誰給誰多少": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fill in members and amounts to see who pays whom"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "填好成員與金額後，這裡會顯示誰給誰多少"
           }
         }
       }
@@ -790,6 +934,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "好"
+          }
+        }
+      }
+    },
+    "姓名": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "姓名"
           }
         }
       }
@@ -984,6 +1144,22 @@
         }
       }
     },
+    "幣別": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Currency"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "幣別"
+          }
+        }
+      }
+    },
     "平均分帳": {
       "localizations": {
         "en": {
@@ -1051,6 +1227,22 @@
         }
       }
     },
+    "快速分帳": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quick Split"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "快速分帳"
+          }
+        }
+      }
+    },
     "成員": {
       "localizations": {
         "en": {
@@ -1081,6 +1273,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "成員的改動會即時顯示在這裡"
+          }
+        }
+      }
+    },
+    "成員與先出金額": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Members & Amount Paid"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "成員與先出金額"
           }
         }
       }
@@ -1131,6 +1339,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "新增帳目"
+          }
+        }
+      }
+    },
+    "新增快速分帳": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Quick Split"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新增快速分帳"
           }
         }
       }
@@ -1267,6 +1491,22 @@
         }
       }
     },
+    "每人應付": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Each Pays"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每人應付"
+          }
+        }
+      }
+    },
     "每筆消費都記得清清楚楚，選擇誰付款、平均分攤或自訂金額": {
       "comment": "Onboarding page 2 description.",
       "localizations": {
@@ -1280,6 +1520,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "每筆消費都記得清清楚楚，選擇誰付款、平均分攤或自訂金額"
+          }
+        }
+      }
+    },
+    "沒先出錢的人留 0。至少兩位成員、總額大於 0 才能儲存。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave 0 for those who didn't pay. Needs at least two members and a total above 0 to save."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沒先出錢的人留 0。至少兩位成員、總額大於 0 才能儲存。"
           }
         }
       }
@@ -1430,6 +1686,22 @@
         }
       }
     },
+    "結果": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Result"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "結果"
+          }
+        }
+      }
+    },
     "結清或刪除帳目後會出現紀錄": {
       "localizations": {
         "en": {
@@ -1509,6 +1781,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "編輯花費"
+          }
+        }
+      }
+    },
+    "總額": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "總額"
+          }
+        }
+      }
+    },
+    "總額 · %lld 人": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total · %lld people"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "總額 · %lld 人"
           }
         }
       }
@@ -1984,6 +2288,22 @@
         }
       }
     },
+    "還沒有快速分帳": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Quick Splits Yet"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "還沒有快速分帳"
+          }
+        }
+      }
+    },
     "還沒有花費紀錄": {
       "localizations": {
         "en": {
@@ -2080,6 +2400,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "開始使用"
+          }
+        }
+      }
+    },
+    "開始分帳": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start Splitting"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開始分帳"
           }
         }
       }
