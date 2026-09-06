@@ -25,16 +25,21 @@ final class SplityUITests: XCTestCase {
         XCTAssertTrue(app.buttons["新增帳目"].waitForExistence(timeout: 6))
     }
 
+    /// 打開「新增帳目」sheet（名稱輸入 + 幣別選擇 + 右上「建立」），回傳名稱輸入框
+    private func openAddGroupSheet() -> XCUIElement {
+        app.buttons["新增帳目"].tap()
+        let field = app.textFields["例如：沖繩"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "找不到帳目名稱輸入框（sheet 未出現？）")
+        return field
+    }
+
     /// 建立一個群組並導航進去，回傳群組名稱
     @discardableResult
     private func createAndEnterGroup(name: String) -> String {
-        app.buttons["新增帳目"].tap()
-        let alert = app.alerts["新增帳目"]
-        XCTAssertTrue(alert.waitForExistence(timeout: 10))
-        let field = alert.textFields["帳目名稱"]
+        let field = openAddGroupSheet()
         field.tap()
         field.typeText(name)
-        alert.buttons["建立"].tap()
+        app.buttons["建立"].tap()
 
         let cell = app.staticTexts[name]
         XCTAssertTrue(cell.waitForExistence(timeout: 10))
@@ -116,14 +121,10 @@ final class SplityUITests: XCTestCase {
     func testGroupList_CreateGroup_AppearsInList() {
         launchSkippingOnboarding()
 
-        app.buttons["新增帳目"].tap()
-
-        let alert = app.alerts["新增帳目"]
-        XCTAssertTrue(alert.waitForExistence(timeout: 10))
-        let field = alert.textFields["帳目名稱"]
+        let field = openAddGroupSheet()
         field.tap()
         field.typeText("UI測試群組")
-        alert.buttons["建立"].tap()
+        app.buttons["建立"].tap()
 
         XCTAssertTrue(app.staticTexts["UI測試群組"].waitForExistence(timeout: 10))
     }
@@ -131,27 +132,28 @@ final class SplityUITests: XCTestCase {
     func testGroupList_CreateGroup_EmptyName_NoGroupAdded() {
         launchSkippingOnboarding()
 
-        app.buttons["新增帳目"].tap()
+        let initialGroupCount = app.cells.count
+        _ = openAddGroupSheet()
 
-        let alert = app.alerts["新增帳目"]
-        XCTAssertTrue(alert.waitForExistence(timeout: 3))
-        // 不輸入名稱，直接點建立
-        alert.buttons["建立"].tap()
+        // 不輸入名稱時「建立」應停用，無法新增空名稱群組
+        let createButton = app.buttons["建立"]
+        XCTAssertTrue(createButton.waitForExistence(timeout: 3))
+        XCTAssertFalse(createButton.isEnabled, "空名稱時「建立」應停用")
 
-        // Alert 消失，但不應新增空名稱群組
-        XCTAssertFalse(app.alerts["新增帳目"].exists)
+        app.buttons["取消"].tap()
+        XCTAssertTrue(app.buttons["建立"].waitForNonExistence(timeout: 3))
+        XCTAssertEqual(app.cells.count, initialGroupCount)
     }
 
     func testGroupList_CancelCreation_NoGroupAdded() {
         launchSkippingOnboarding()
 
         let initialGroupCount = app.cells.count
-        app.buttons["新增帳目"].tap()
-
-        let alert = app.alerts["新增帳目"]
-        XCTAssertTrue(alert.waitForExistence(timeout: 3))
-        alert.textFields["帳目名稱"].typeText("應取消的群組")
-        alert.buttons["取消"].tap()
+        let field = openAddGroupSheet()
+        field.tap()
+        field.typeText("應取消的群組")
+        app.buttons["取消"].tap()
+        XCTAssertTrue(app.buttons["建立"].waitForNonExistence(timeout: 3))
 
         // 群組數量不應增加
         XCTAssertEqual(app.cells.count, initialGroupCount)
