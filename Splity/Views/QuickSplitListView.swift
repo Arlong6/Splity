@@ -7,6 +7,7 @@ struct QuickSplitListView: View {
     @Query(sort: \QuickSplit.date, order: .reverse) private var splits: [QuickSplit]
 
     @State private var showingNew = false
+    @State private var deleteError: String?
 
     var body: some View {
         SwiftUI.Group {
@@ -35,11 +36,19 @@ struct QuickSplitListView: View {
         .sheet(isPresented: $showingNew) {
             QuickSplitEditView()
         }
+        .alert("刪除失敗", isPresented: Binding(
+            get: { deleteError != nil },
+            set: { if !$0 { deleteError = nil } }
+        )) {
+            Button("好") { deleteError = nil }
+        } message: {
+            Text(deleteError ?? "")
+        }
     }
 
     private var emptyState: some View {
         ContentUnavailableView {
-            Label("還沒有快速分帳", systemImage: "person.2.badge.plus")
+            Label("還沒有快速分帳", systemImage: "divide.circle")
         } description: {
             Text("偶爾的飯局不用建群組。輸入誰先出了多少，馬上算出每人應付與誰給誰。")
         } actions: {
@@ -71,6 +80,10 @@ struct QuickSplitListView: View {
         for index in offsets {
             modelContext.delete(splits[index])
         }
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            deleteError = error.localizedDescription
+        }
     }
 }

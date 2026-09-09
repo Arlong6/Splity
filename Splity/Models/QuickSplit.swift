@@ -1,27 +1,32 @@
 import Foundation
 import SwiftData
 
-/// 快速分帳的一位參與者：名字與先出的金額。
+/// 快速分帳的一位參與者。
+/// `paid` 是先出的金額（留空視為 0）；`share` 是這個人要負擔的金額，
+/// nil 代表「平分剩下的」，0 代表「不用付」——兩者意義不同，不可互換。
 /// 金額以字串編碼，避免 Decimal 經 JSON 的 Double 表示失真。
 struct QuickSplitParticipant: Identifiable, Hashable, Codable {
     var id: UUID
     var name: String
     var paid: Decimal
+    var share: Decimal?
 
-    init(id: UUID = UUID(), name: String = "", paid: Decimal = 0) {
+    init(id: UUID = UUID(), name: String = "", paid: Decimal = 0, share: Decimal? = nil) {
         self.id = id
         self.name = name
         self.paid = paid
+        self.share = share
     }
 
-    private enum CodingKeys: String, CodingKey { case id, name, paid }
+    private enum CodingKeys: String, CodingKey { case id, name, paid, share }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(UUID.self, forKey: .id)
         name = try c.decode(String.self, forKey: .name)
-        let paidString = try c.decode(String.self, forKey: .paid)
-        paid = Decimal(string: paidString) ?? 0
+        paid = Decimal(string: try c.decode(String.self, forKey: .paid)) ?? 0
+        // share 是後加的欄位；1.8.0 build 15 存下的紀錄沒有這個 key
+        share = (try c.decodeIfPresent(String.self, forKey: .share)).flatMap { Decimal(string: $0) }
     }
 
     func encode(to encoder: Encoder) throws {
@@ -29,6 +34,7 @@ struct QuickSplitParticipant: Identifiable, Hashable, Codable {
         try c.encode(id, forKey: .id)
         try c.encode(name, forKey: .name)
         try c.encode("\(paid)", forKey: .paid)
+        try c.encodeIfPresent(share.map { "\($0)" }, forKey: .share)
     }
 }
 

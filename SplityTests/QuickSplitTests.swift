@@ -51,15 +51,16 @@ struct SettlementCoreTests {
 
 struct QuickSplitCalculatorTests {
 
-    private func p(_ name: String, _ paid: Decimal) -> QuickSplitParticipant {
-        QuickSplitParticipant(name: name, paid: paid)
+    private func p(_ name: String, _ paid: Decimal, share: Decimal? = nil) -> QuickSplitParticipant {
+        QuickSplitParticipant(name: name, paid: paid, share: share)
     }
 
     @Test("一人先付全額，其他人均分還他（TWD 無條件進位）")
     func singlePayerTWD() {
         let r = QuickSplitCalculator.compute(participants: [p("A", 100), p("B", 0), p("C", 0)], currencyCode: "TWD")
         #expect(r.total == 100)
-        #expect(r.perShare == 34)
+        #expect(r.autoShare == 34)
+        #expect(r.isBalanced)
         #expect(r.transfers.count == 2)
         #expect(r.transfers.allSatisfy { $0.to.name == "A" && $0.amount == 34 })
     }
@@ -67,7 +68,7 @@ struct QuickSplitCalculatorTests {
     @Test("多位付款人：沒先出的人付的總和恰等於每人應付，按墊款比例分給兩位墊款者")
     func multiplePayers() {
         let r = QuickSplitCalculator.compute(participants: [p("A", 60), p("B", 40), p("C", 0)], currencyCode: "TWD")
-        #expect(r.perShare == 34)
+        #expect(r.autoShare == 34)
         // A 債權 60×1.02 = 27.2 → 進位 28；B 拿剩下的 6
         let byTo = Dictionary(grouping: r.transfers, by: { $0.to.name }).mapValues { $0.reduce(Decimal(0)) { $0 + $1.amount } }
         #expect(byTo["A"] == 28)
@@ -79,7 +80,7 @@ struct QuickSplitCalculatorTests {
     @Test("USD 三人分 10 元：每人 3.33，殘值不產生多餘轉帳")
     func usdResidual() {
         let r = QuickSplitCalculator.compute(participants: [p("A", 10), p("B", 0), p("C", 0)], currencyCode: "USD")
-        #expect(r.perShare == Decimal(string: "3.33")!)
+        #expect(r.autoShare == Decimal(string: "3.33")!)
         #expect(r.transfers.count == 2)
         #expect(r.transfers.allSatisfy { $0.amount == Decimal(string: "3.33")! })
     }
@@ -88,15 +89,99 @@ struct QuickSplitCalculatorTests {
     func blankNamesIgnored() {
         let r = QuickSplitCalculator.compute(participants: [p("A", 90), p("B", 0), p("  ", 0), p("C", 0)], currencyCode: "TWD")
         #expect(r.participantCount == 3)
-        #expect(r.perShare == 30)
+        #expect(r.autoShare == 30)
     }
 
     @Test("總額為 0 時沒有轉帳")
     func zeroTotal() {
         let r = QuickSplitCalculator.compute(participants: [p("A", 0), p("B", 0)], currencyCode: "TWD")
         #expect(r.total == 0)
-        #expect(r.perShare == 0)
         #expect(r.transfers.isEmpty)
+    }
+
+    // MARK: 指定應付
+
+    @Test("兩人各出 100、我指定應付 120：剩下 80 歸另一人，我補 20 給他")
+    func assignedShareSplitsRemainder() {
+        let r = QuickSplitCalculator.compute(
+            participants: [p("我", 100, share: 120), p("你", 100)],
+            currencyCode: "TWD"
+        )
+        #expect(r.total == 200)
+        #expect(r.assignedTotal == 120)
+        #expect(r.remaining == 80)
+        #expect(r.autoCount == 1)
+        #expect(r.autoShare == 80)
+        #expect(r.isBalanced)
+        #expect(r.transfers.count == 1)
+        #expect(r.transfers[0].from.name == "我")
+        #expect(r.transfers[0].to.name == "你")
+        #expect(r.transfers[0].amount == 20)
+    }
+
+    @Test("應付填 0 代表不用付；留空的兩人平分全額")
+    func zeroShareMeansOwesNothing() {
+        let r = QuickSplitCalculator.compute(
+            participants: [p("A", 900), p("B", 0), p("陪坐", 0, share: 0)],
+            currencyCode: "TWD"
+        )
+        #expect(r.autoCount == 2)
+        #expect(r.autoShare == 450)
+        #expect(r.share(for: r.participants.first { $0.name == "陪坐" }!) == 0)
+        #expect(r.transfers.count == 1)
+        #expect(r.transfers[0].from.name == "B")
+        #expect(r.transfers[0].to.name == "A")
+        #expect(r.transfers[0].amount == 450)
+    }
+
+    @Test("應付 0 與留空意義不同：留空的人要分攤，填 0 的人不用")
+    func nilShareDiffersFromZero() {
+        let auto = QuickSplitCalculator.compute(
+            participants: [p("A", 100), p("B", 0)], currencyCode: "TWD"
+        )
+        let zero = QuickSplitCalculator.compute(
+            participants: [p("A", 100), p("B", 0, share: 0)], currencyCode: "TWD"
+        )
+        #expect(auto.transfers.count == 1)   // B 分攤 50，要還 A
+        #expect(zero.transfers.isEmpty)      // B 不用付，A 自己吸收
+    }
+
+    @Test("所有人都指定應付且合計等於總額 → 平衡，照指定的算")
+    func allAssignedBalanced() {
+        let r = QuickSplitCalculator.compute(
+            participants: [p("A", 200, share: 50), p("B", 0, share: 150)],
+            currencyCode: "TWD"
+        )
+        #expect(r.autoCount == 0)
+        #expect(r.isBalanced)
+        #expect(r.transfers.count == 1)
+        #expect(r.transfers[0].from.name == "B")
+        #expect(r.transfers[0].to.name == "A")
+        #expect(r.transfers[0].amount == 150)
+    }
+
+    @Test("所有人都指定應付但合計不等於總額 → 結不平，不產生轉帳")
+    func allAssignedUnbalanced() {
+        let r = QuickSplitCalculator.compute(
+            participants: [p("A", 1000, share: 300), p("B", 0, share: 300), p("C", 0, share: 300)],
+            currencyCode: "TWD"
+        )
+        #expect(r.autoCount == 0)
+        #expect(r.remaining == 100)
+        #expect(!r.isBalanced)
+        #expect(r.transfers.isEmpty)
+    }
+
+    @Test("指定的應付超過總額：標記為超額，餘額為負仍照算")
+    func overAssigned() {
+        let r = QuickSplitCalculator.compute(
+            participants: [p("A", 100, share: 150), p("B", 0)],
+            currencyCode: "TWD"
+        )
+        #expect(r.isOverAssigned)
+        #expect(r.remaining == -50)
+        #expect(r.autoShare == -50)
+        #expect(r.isBalanced)
     }
 }
 
@@ -112,7 +197,7 @@ struct QuickSplitModelTests {
 
         let split = QuickSplit(title: "晚餐", currencyCode: "USD")
         split.participants = [
-            QuickSplitParticipant(name: "A", paid: Decimal(string: "12.34")!),
+            QuickSplitParticipant(name: "A", paid: Decimal(string: "12.34")!, share: Decimal(string: "20.5")!),
             QuickSplitParticipant(name: "B", paid: Decimal(string: "0.1")!),
         ]
         ctx.insert(split)
@@ -122,6 +207,24 @@ struct QuickSplitModelTests {
         #expect(fetched.count == 1)
         #expect(fetched[0].participants.map(\.name) == ["A", "B"])
         #expect(fetched[0].participants.map(\.paid) == [Decimal(string: "12.34")!, Decimal(string: "0.1")!])
+        #expect(fetched[0].participants.map(\.share) == [Decimal(string: "20.5")!, nil])
         #expect(fetched[0].total == Decimal(string: "12.44")!)
+    }
+}
+
+// MARK: - 舊紀錄相容
+
+struct QuickSplitLegacyDecodeTests {
+
+    /// 1.8.0 build 15 存下的 JSON 沒有 share 欄位，解碼後必須是 nil（平分），不是 0。
+    @Test("缺少 share 欄位的舊紀錄解碼為 nil")
+    func legacyJSONWithoutShare() throws {
+        let json = """
+        [{"id":"\(UUID().uuidString)","name":"A","paid":"100"}]
+        """.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode([QuickSplitParticipant].self, from: json)
+        #expect(decoded.count == 1)
+        #expect(decoded[0].paid == 100)
+        #expect(decoded[0].share == nil)
     }
 }

@@ -26,10 +26,17 @@ final class SplityUITests: XCTestCase {
     }
 
     /// 打開「新增帳目」sheet（名稱輸入 + 幣別選擇 + 右上「建立」），回傳名稱輸入框
+    /// 工具列按鈕在列表剛重繪時偶爾會吃掉點擊，補一次重試。
     private func openAddGroupSheet() -> XCUIElement {
-        app.buttons["新增帳目"].tap()
+        let button = app.buttons["新增帳目"]
+        XCTAssertTrue(button.waitForExistence(timeout: 10), "找不到「新增帳目」按鈕")
+        button.tap()
+
         let field = app.textFields["例如：沖繩"]
-        XCTAssertTrue(field.waitForExistence(timeout: 10), "找不到帳目名稱輸入框（sheet 未出現？）")
+        if !field.waitForExistence(timeout: 5) {
+            button.tap()
+            XCTAssertTrue(field.waitForExistence(timeout: 10), "找不到帳目名稱輸入框（sheet 未出現？）")
+        }
         return field
     }
 

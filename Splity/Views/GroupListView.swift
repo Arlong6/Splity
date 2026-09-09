@@ -148,8 +148,15 @@ struct GroupListView: View {
                     )
             }
 
-            // 加入邀請碼
+            // 不建群組的快速分帳 + 加入邀請碼
             Section {
+                Button {
+                    path.append(QuickSplitRoute.list)
+                } label: {
+                    Label("快速分帳（不用建群組）", systemImage: "divide.circle")
+                        .foregroundStyle(.orange)
+                }
+
                 Button {
                     showingJoinCode = true
                 } label: {
@@ -157,6 +164,19 @@ struct GroupListView: View {
                         .foregroundStyle(.blue)
                 }
                 .disabled(isJoining)
+            }
+
+            // 空狀態排在列表裡（不用 overlay，否則會蓋住上面的入口卡片）
+            if groups.isEmpty {
+                Section {
+                    ContentUnavailableView(
+                        "還沒有帳本",
+                        systemImage: "person.3",
+                        description: Text("點右上角 + 建立一個新的帳本")
+                    )
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                }
             }
 
             // 進行中
@@ -237,15 +257,6 @@ struct GroupListView: View {
         }
         .listStyle(.insetGrouped)
         .overlay {
-            if groups.isEmpty {
-                ContentUnavailableView(
-                    "還沒有帳本",
-                    systemImage: "person.3",
-                    description: Text("點右上角 + 建立一個新的帳本")
-                )
-            }
-        }
-        .overlay {
             if isJoining {
                 ProgressView("加入中…")
                     .padding(20)
@@ -260,7 +271,7 @@ struct GroupListView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
             Button { path.append(QuickSplitRoute.list) } label: {
-                Label("快速分帳", systemImage: "person.2.badge.plus")
+                Label("快速分帳", systemImage: "divide.circle")
             }
             Button { showingAddGroup = true } label: {
                 Label("新增帳目", systemImage: "plus.circle.fill")
