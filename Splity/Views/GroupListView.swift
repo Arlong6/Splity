@@ -51,7 +51,6 @@ struct GroupListView: View {
                     QuickSplitResultView(split: split)
                 }
                 .onAppear {
-                    updateWidget()
                     refreshUnread()
                     // 上次啟動時資料庫打不開、已改名備份：一定要讓使用者知道
                     if StoreRescue.consumeRescueFlag() { showingStoreRescueNotice = true }
@@ -244,7 +243,6 @@ struct GroupListView: View {
                                 group.isSettled = false
                                 save()
                                 pushMetaIfShared(group, logging: .unsettledGroup)
-                                updateWidget()
                             } label: {
                                 Label("取消結清", systemImage: "arrow.uturn.backward")
                             }
@@ -441,7 +439,6 @@ struct GroupListView: View {
         newGroupName = ""
         showingAddGroup = false
         save()
-        updateWidget()
     }
 
     private func confirmRename() {
@@ -464,7 +461,6 @@ struct GroupListView: View {
         group.isSettled = true
         save()
         pushMetaIfShared(group, logging: .settledGroup)
-        updateWidget()
     }
 
     /// 共享帳本的列表操作（結清/改名）推送到 Firestore，否則其他成員看不到、
@@ -509,10 +505,11 @@ struct GroupListView: View {
             action: .deleted
         )
         modelContext.insert(record)
+        // 帳本刪掉後它的每裝置偏好就沒有意義了，一併清掉避免 UserDefaults 無限累積
+        GroupPrefs.clearAll(for: group.id)
         modelContext.delete(group)
         groupToDelete = nil
         save()
-        updateWidget()
     }
 
     private func save() {
@@ -523,12 +520,6 @@ struct GroupListView: View {
         }
     }
 
-    private func updateWidget() {
-        WidgetDataWriter.update(
-            activeGroupCount: activeGroups.count,
-            totalExpenseCount: groups.reduce(0) { $0 + $1.expenses.filter { !$0.archived }.count }
-        )
-    }
 }
 
 // MARK: - Join Code Alerts (extracted to help Swift type-checker)

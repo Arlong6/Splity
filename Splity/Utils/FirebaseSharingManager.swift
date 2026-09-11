@@ -116,6 +116,11 @@ final class FirebaseSharingManager {
             // 已過期就直接換一組新的（擁有者本來就有權重新產生，省得他先看到一組無效碼）。
             // expiresAt 為 nil = 1.7.8 之前建立的碼，沒有到期日，永遠沿用。
             if let expiry = group.inviteCodeExpiresAt, expiry <= Date() {
+                // 只有擁有者能換碼：加入者本地存的是他當初 join 用的那組，
+                // 讓他自動換發只會把擁有者正在流通的碼覆蓋掉，而對方毫無提示。
+                guard group.firebaseOwnerId == userId else {
+                    throw SharingError.inviteCodeExpired
+                }
                 return try await regenerateInviteCode(for: group)
             }
             return existingCode
@@ -312,20 +317,57 @@ final class FirebaseSharingManager {
 
     /// 只推送 group 文件層級欄位（名稱/結算/基準幣/成員），用 updateData 不觸碰 expenses
     /// （陣列與子集合都不動），避免成員/結算等變動順手重寫花費而 clobber 併發編輯。
+    /// 推送群組層級的欄位（名稱／結清狀態／基準幣／成員清單）。
+    ///
+    /// members 是整個陣列覆寫，所以必須在同一個 transaction 裡把遠端既有的 `claimedByUid`
+    /// 讀回來合併：本地可能還沒收到別人剛用 transaction 寫下的認領，直接推本地狀態會把它抹掉
+    /// （加成員／刪成員撞上別人認領時就會發生），對方下次同步就被要求重新認領，毫無提示。
     func pushGroupMeta(for group: Group) async throws {
         guard let firestoreId = group.firestoreGroupId else { return }
         try await signInAnonymously()
-        let members = group.members.map { member -> [String: Any] in
-            var m: [String: Any] = ["id": member.id.uuidString, "name": member.name]
-            if let uid = member.claimedByUid { m["claimedByUid"] = uid }
-            return m
+
+        // SwiftData 模型限定 MainActor，先取出純值再進 transaction 閉包
+        let localMembers = group.members.map {
+            (id: $0.id.uuidString, name: $0.name, claim: $0.claimedByUid)
         }
-        try await db.collection("groups").document(firestoreId).updateData([
-            "name": group.name,
-            "isSettled": group.isSettled,
-            "baseCurrencyCode": group.baseCurrencyCode,
-            "members": members
-        ])
+        let name = group.name
+        let isSettled = group.isSettled
+        let baseCurrencyCode = group.baseCurrencyCode
+        let groupRef = db.collection("groups").document(firestoreId)
+
+        _ = try await db.runTransaction { (txn, errorPointer) -> Any? in
+            let snap: DocumentSnapshot
+            do {
+                snap = try txn.getDocument(groupRef)
+            } catch {
+                errorPointer?.pointee = error as NSError
+                return nil
+            }
+
+            var remoteClaims: [String: String] = [:]
+            for m in (snap.data()?["members"] as? [[String: Any]]) ?? [] {
+                if let id = m["id"] as? String, let uid = m["claimedByUid"] as? String {
+                    remoteClaims[id] = uid
+                }
+            }
+
+            let members = localMembers.map { member -> [String: Any] in
+                var m: [String: Any] = ["id": member.id, "name": member.name]
+                // 本地認領優先；本地沒有就保留遠端既有的，不以 nil 覆蓋
+                if let uid = member.claim ?? remoteClaims[member.id] {
+                    m["claimedByUid"] = uid
+                }
+                return m
+            }
+
+            txn.updateData([
+                "name": name,
+                "isSettled": isSettled,
+                "baseCurrencyCode": baseCurrencyCode,
+                "members": members
+            ], forDocument: groupRef)
+            return nil
+        }
     }
 
     /// 永久移除花費：rules 禁止 client 硬刪文件（防惡意刪庫），改寫 isPurged 墓碑——
@@ -546,7 +588,7 @@ final class FirebaseSharingManager {
             }
             guard let title = eData["title"] as? String,
                   let totalStr = eData["totalAmount"] as? String,
-                  let total = Decimal(string: totalStr) else { continue }
+                  let total = RemoteAmount.parse(totalStr) else { continue }
             let payerIdStr = eData["payerId"] as? String ?? ""
             let payerId = UUID(uuidString: payerIdStr)
             let payer = payerId.flatMap { memberMap[$0] }
@@ -572,14 +614,14 @@ final class FirebaseSharingManager {
                         existing.originalCurrencyCode = newOriginalCode
                     }
                     let newOriginalAmount: Decimal? = {
-                        if let str = eData["originalAmount"] as? String { return Decimal(string: str) }
+                        if let str = eData["originalAmount"] as? String { return RemoteAmount.parse(str) }
                         return nil
                     }()
                     if existing.originalAmount != newOriginalAmount {
                         existing.originalAmount = newOriginalAmount
                     }
                     let newExchangeRate: Decimal? = {
-                        if let str = eData["exchangeRate"] as? String { return Decimal(string: str) }
+                        if let str = eData["exchangeRate"] as? String { return RemoteAmount.parse(str) }
                         return nil
                     }()
                     if existing.exchangeRate != newExchangeRate {
@@ -612,8 +654,8 @@ final class FirebaseSharingManager {
                     if let createdTs = eData["createdAt"] as? Timestamp { expense.createdAt = createdTs.dateValue() }
                     if let delTs = eData["deletedAt"] as? Timestamp { expense.deletedAt = delTs.dateValue() }
                     expense.originalCurrencyCode = eData["originalCurrencyCode"] as? String
-                    if let oaStr = eData["originalAmount"] as? String { expense.originalAmount = Decimal(string: oaStr) }
-                    if let rateStr = eData["exchangeRate"] as? String { expense.exchangeRate = Decimal(string: rateStr) }
+                    if let oaStr = eData["originalAmount"] as? String { expense.originalAmount = RemoteAmount.parse(oaStr) }
+                    if let rateStr = eData["exchangeRate"] as? String { expense.exchangeRate = RemoteAmount.parse(rateStr) }
                     expense.isEvenSplit = eData["isEvenSplit"] as? Bool
                     if let ua = eData["updatedAt"] as? Timestamp { expense.updatedAt = ua.dateValue() }
                     expense.lastEditorName = eData["lastEditorName"] as? String
@@ -649,7 +691,7 @@ final class FirebaseSharingManager {
         guard let splitsData = eData["splits"] as? [[String: Any]] else { return }
         for sData in splitsData {
             guard let sid = sData["id"] as? String, let splitUUID = UUID(uuidString: sid),
-                  let amtStr = sData["amount"] as? String, let amt = Decimal(string: amtStr),
+                  let amtStr = sData["amount"] as? String, let amt = RemoteAmount.parse(amtStr),
                   let memIdStr = sData["memberId"] as? String, let memId = UUID(uuidString: memIdStr),
                   let member = memberMap[memId] else { continue }
             let split = ExpenseSplit(member: member, amount: amt)
@@ -846,7 +888,7 @@ final class FirebaseSharingManager {
                 guard let idStr = eData["id"] as? String, let uuid = UUID(uuidString: idStr),
                       let title = eData["title"] as? String,
                       let totalStr = eData["totalAmount"] as? String,
-                      let total = Decimal(string: totalStr),
+                      let total = RemoteAmount.parse(totalStr),
                       let payerIdStr = eData["payerId"] as? String,
                       let payerId = UUID(uuidString: payerIdStr),
                       let payer = memberMap[payerId] else { continue }
@@ -859,8 +901,8 @@ final class FirebaseSharingManager {
                 if let createdTs = eData["createdAt"] as? Timestamp { expense.createdAt = createdTs.dateValue() }
                 if let delTs = eData["deletedAt"] as? Timestamp { expense.deletedAt = delTs.dateValue() }
                 expense.originalCurrencyCode = eData["originalCurrencyCode"] as? String
-                if let oaStr = eData["originalAmount"] as? String { expense.originalAmount = Decimal(string: oaStr) }
-                if let rateStr = eData["exchangeRate"] as? String { expense.exchangeRate = Decimal(string: rateStr) }
+                if let oaStr = eData["originalAmount"] as? String { expense.originalAmount = RemoteAmount.parse(oaStr) }
+                if let rateStr = eData["exchangeRate"] as? String { expense.exchangeRate = RemoteAmount.parse(rateStr) }
                 expense.isEvenSplit = eData["isEvenSplit"] as? Bool
                 if let ua = eData["updatedAt"] as? Timestamp { expense.updatedAt = ua.dateValue() }
                 expense.lastEditorName = eData["lastEditorName"] as? String
@@ -868,7 +910,7 @@ final class FirebaseSharingManager {
                 if let splitsData = eData["splits"] as? [[String: Any]] {
                     for sData in splitsData {
                         guard let sid = sData["id"] as? String, let splitUUID = UUID(uuidString: sid),
-                              let amtStr = sData["amount"] as? String, let amt = Decimal(string: amtStr),
+                              let amtStr = sData["amount"] as? String, let amt = RemoteAmount.parse(amtStr),
                               let memIdStr = sData["memberId"] as? String, let memId = UUID(uuidString: memIdStr),
                               let member = memberMap[memId] else { continue }
                         let split = ExpenseSplit(member: member, amount: amt)

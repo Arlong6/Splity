@@ -13,6 +13,32 @@ enum GroupPrefs {
         UserDefaults.standard.string(forKey: key(groupId))
     }
 
+    // MARK: - 身份認領
+
+    private static func claimDeclinedKey(_ groupId: UUID) -> String {
+        "claimDeclined.\(groupId.uuidString)"
+    }
+
+    /// 使用者是否已對這個帳本按過「稍後再說」。
+    /// 不記住的話，每次進入帳本（連從花費編輯頁返回都算）都會再跳一次認領視窗。
+    static func hasDeclinedClaim(for groupId: UUID) -> Bool {
+        UserDefaults.standard.bool(forKey: claimDeclinedKey(groupId))
+    }
+
+    static func setDeclinedClaim(_ declined: Bool, for groupId: UUID) {
+        if declined {
+            UserDefaults.standard.set(true, forKey: claimDeclinedKey(groupId))
+        } else {
+            UserDefaults.standard.removeObject(forKey: claimDeclinedKey(groupId))
+        }
+    }
+
+    /// 帳本被刪除時一併清掉它的偏好，避免 UserDefaults 無限累積。
+    static func clearAll(for groupId: UUID) {
+        UserDefaults.standard.removeObject(forKey: key(groupId))
+        UserDefaults.standard.removeObject(forKey: claimDeclinedKey(groupId))
+    }
+
     static func setDefaultInputCurrency(_ code: String?, for groupId: UUID) {
         if let code {
             UserDefaults.standard.set(code, forKey: key(groupId))

@@ -73,7 +73,10 @@ struct GroupDetailView: View {
                 if group.isShared, subscription == nil {
                     subscription = sharingManager.listenToChanges(for: group, modelContext: modelContext)
                 }
-                if group.isShared, sharingManager.claimedMember(in: group) == nil {
+                // 按過「稍後再說」就不再自動跳；要認領可從 ⋯ 選單進入
+                if group.isShared,
+                   sharingManager.claimedMember(in: group) == nil,
+                   !GroupPrefs.hasDeclinedClaim(for: group.id) {
                     claimForShare = false
                     showingClaimPicker = true
                 }
@@ -254,6 +257,15 @@ struct GroupDetailView: View {
                         defaultInputCurrency = nil
                     } label: {
                         Label("預設幣種改回跟隨結算", systemImage: "arrow.uturn.backward")
+                    }
+                }
+                if group.isShared, sharingManager.claimedMember(in: group) == nil {
+                    Button {
+                        GroupPrefs.setDeclinedClaim(false, for: group.id)
+                        claimForShare = false
+                        showingClaimPicker = true
+                    } label: {
+                        Label("設定我的身份", systemImage: "person.crop.circle.badge.questionmark")
                     }
                 }
                 if group.isShared {
@@ -602,7 +614,10 @@ private struct GroupDetailSheets: ViewModifier {
                 MemberClaimView(
                     group: group,
                     onClaim: { _ in onClaimSelected() },
-                    onSkip: claimForShare ? nil : { claimForShare = false }
+                    onSkip: claimForShare ? nil : {
+                    claimForShare = false
+                    GroupPrefs.setDeclinedClaim(true, for: group.id)
+                }
                 )
                 .environment(sharingManager)
                 .interactiveDismissDisabled(claimForShare)
