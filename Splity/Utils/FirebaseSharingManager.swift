@@ -14,7 +14,28 @@ final class FirebaseSharingManager {
     }
     private(set) var currentUserId: String?
 
+    /// 使用者已離開當前畫面、無法就地跳 alert 的背景推送失敗。
+    /// 下一個出現的群組畫面負責顯示並清掉，避免「看起來存好了、其實沒同步出去」。
+    var pendingSyncError: String?
+
     private init() {}
+
+    /// 執行背景推送；失敗時記下錯誤而不是靜默吞掉。
+    @MainActor
+    func pushInBackground(_ work: () async throws -> Void) async {
+        do {
+            try await work()
+        } catch {
+            pendingSyncError = error.localizedDescription
+        }
+    }
+
+    /// 取出並清除待顯示的背景同步錯誤。
+    @MainActor
+    func consumePendingSyncError() -> String? {
+        defer { pendingSyncError = nil }
+        return pendingSyncError
+    }
 
     /// Returns the Member the current user has claimed in this group, if any.
     func claimedMember(in group: Group) -> Member? {
@@ -29,9 +50,17 @@ final class FirebaseSharingManager {
         try await signInAnonymously()
         guard let uid = currentUserId else { throw SharingError.notAuthenticated }
         member.claimedByUid = uid
-        try? modelContext.save()
+        try modelContext.save()
         if group.isShared {
-            try? await pushMemberClaim(member, uid: uid, in: group)
+            do {
+                try await pushMemberClaim(member, uid: uid, in: group)
+            } catch {
+                // 推送失敗就收回本地認領：否則畫面顯示認領成功，下一次遠端同步又把它洗掉，
+                // 使用者只會看到認領視窗莫名再跳一次，完全不知道發生什麼事。
+                member.claimedByUid = nil
+                try? modelContext.save()
+                throw error
+            }
             await logActivity(for: group, action: .joinedGroup, target: member.name)
         }
     }
@@ -216,7 +245,9 @@ final class FirebaseSharingManager {
         batch.setData(data, forDocument: groupRef)
         for expense in group.expenses {
             let ref = groupRef.collection("expenses").document(expense.id.uuidString)
-            batch.setData(serializeExpense(expense), forDocument: ref)
+            // merge：serializeExpense 不含 isPurged，整包覆蓋會把永久刪除的墓碑洗掉，
+            // 造成別人已永久刪除的花費因為這次推送而全員復活。
+            batch.setData(serializeExpense(expense), forDocument: ref, merge: true)
         }
         try await batch.commit()
     }
@@ -233,7 +264,8 @@ final class FirebaseSharingManager {
         let groupRef = db.collection("groups").document(firestoreId)
 
         // 1) 子集合文件（權威來源）
-        try await groupRef.collection("expenses").document(expenseId).setData(expenseData)
+        // merge：保住可能已存在的 isPurged 墓碑（見 pushChanges 的說明）
+        try await groupRef.collection("expenses").document(expenseId).setData(expenseData, merge: true)
 
         // 2) 鏡像回舊陣列（最佳努力）：transaction 只替換/插入這一筆，不誤刪其他併發寫入
         _ = try? await db.runTransaction { (txn, errorPointer) -> Any? in
@@ -270,7 +302,7 @@ final class FirebaseSharingManager {
             let batch = db.batch()
             for eData in arr {
                 guard let id = eData["id"] as? String else { continue }
-                batch.setData(eData, forDocument: groupRef.collection("expenses").document(id))
+                batch.setData(eData, forDocument: groupRef.collection("expenses").document(id), merge: true)
             }
             try await batch.commit()
         } catch {

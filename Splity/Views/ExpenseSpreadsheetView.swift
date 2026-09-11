@@ -197,6 +197,11 @@ struct ExpenseSpreadsheetView: View {
 
     // MARK: - Body
 
+    /// 群組名可能含 "/" 等字元，直接當檔名會讓寫檔失敗、ShareLink 無聲失敗
+    private var exportFilename: String {
+        "\(group.name.sanitizedAsFilename)_分帳明細.csv"
+    }
+
     var body: some View {
         SwiftUI.Group {   // 明確用 SwiftUI.Group(專案有 @Model Group,直接寫 Group 會被解析成資料模型)
         if isLoading {
@@ -259,10 +264,10 @@ struct ExpenseSpreadsheetView: View {
             ToolbarItem(placement: .primaryAction) {
                 ShareLink(
                     item: CSVExportFile(
-                        filename: "\(group.name)_分帳明細.csv",
+                        filename: exportFilename,
                         csvString: sheet.csv   // buildSheet() 生成一次;先前每次 body 都重新產生整份 CSV
                     ),
-                    preview: SharePreview("\(group.name)_分帳明細.csv")
+                    preview: SharePreview(exportFilename)
                 ) {
                     Label("匯出", systemImage: "square.and.arrow.up")
                 }

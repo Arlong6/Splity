@@ -117,3 +117,19 @@ enum SpreadsheetExporter {
         return NSDecimalNumber(decimal: rounded).stringValue
     }
 }
+
+extension String {
+    /// 轉成安全的檔名：路徑分隔與控制字元換成底線，去掉開頭的點，限制長度。
+    /// 群組名可以是任何字串，含 "/" 時直接當檔名會被當成巢狀路徑，寫檔失敗且 ShareLink 無聲。
+    var sanitizedAsFilename: String {
+        let forbidden = CharacterSet(charactersIn: "/\\:*?\"<>|")
+            .union(.controlCharacters)
+            .union(.newlines)
+        var cleaned = components(separatedBy: forbidden).joined(separator: "_")
+        cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+        while cleaned.hasPrefix(".") { cleaned.removeFirst() }
+        if cleaned.count > 60 { cleaned = String(cleaned.prefix(60)) }
+        cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+        return cleaned.isEmpty ? String(localized: "帳目") : cleaned
+    }
+}

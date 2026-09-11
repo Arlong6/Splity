@@ -11,6 +11,8 @@ struct HistoryView: View {
         order: .reverse
     ) private var deletedExpenses: [Expense]
 
+    @State private var actionError: String?
+
     private func currencyCode(for expense: Expense) -> String {
         expense.group?.baseCurrencyCode ?? Locale.current.currency?.identifier ?? "TWD"
     }
@@ -44,23 +46,7 @@ struct HistoryView: View {
 
                                 Spacer()
 
-                                Button("還原") {
-                                    expense.archived = false
-                                    expense.deletedAt = nil
-                                    expense.updatedAt = Date()
-                                    if let g = expense.group {
-                                        expense.lastEditorName = FirebaseSharingManager.shared.claimedMember(in: g)?.name
-                                    }
-                                    try? modelContext.save()
-                                    if let g = expense.group, g.isShared {
-                                        let title = expense.title
-                                        Task {
-                                            try? await FirebaseSharingManager.shared.pushExpense(expense, in: g)
-                                            await FirebaseSharingManager.shared.logActivity(
-                                                for: g, action: .restoredExpense, target: title)
-                                        }
-                                    }
-                                }
+                                Button("還原") { restore(expense) }
                                 .font(.caption.bold())
                                 .foregroundStyle(.indigo)
                                 .buttonStyle(.borderless)
@@ -145,6 +131,44 @@ struct HistoryView: View {
                     }
                 }
             }
+            .alert("還原失敗", isPresented: Binding(
+                get: { actionError != nil },
+                set: { if !$0 { actionError = nil } }
+            )) {
+                Button("好") { actionError = nil }
+            } message: {
+                Text(actionError ?? "")
+            }
+        }
+    }
+
+    /// 還原一筆已刪除的花費。本地儲存與雲端推送任一失敗都要讓使用者知道——
+    /// 原本兩者都被 try? 吞掉，使用者會以為還原成功。
+    private func restore(_ expense: Expense) {
+        expense.archived = false
+        expense.deletedAt = nil
+        expense.updatedAt = Date()
+        if let g = expense.group {
+            expense.lastEditorName = FirebaseSharingManager.shared.claimedMember(in: g)?.name
+        }
+        do {
+            try modelContext.save()
+        } catch {
+            actionError = error.localizedDescription
+            return
+        }
+
+        guard let g = expense.group, g.isShared else { return }
+        let title = expense.title
+        Task {
+            do {
+                try await FirebaseSharingManager.shared.pushExpense(expense, in: g)
+            } catch {
+                actionError = error.localizedDescription
+                return
+            }
+            await FirebaseSharingManager.shared.logActivity(
+                for: g, action: .restoredExpense, target: title)
         }
     }
 }

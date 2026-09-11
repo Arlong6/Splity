@@ -65,27 +65,31 @@ struct SplityApp: App {
             }
         } else {
             // 正式環境：先試本機儲存。失敗時「不刪除」使用者資料 —
-            // 改成把舊 store（含 -wal/-shm）改名備份後再重試，避免暫時性 I/O 錯誤或未來
-            // 無法輕量遷移的 schema 變更造成使用者帳本被永久清空（資料保留在備份檔可挽救）。
-            let storeURL = URL.applicationSupportDirectory.appendingPathComponent("default.store")
+            // 把舊 store（含 -wal/-shm）整組改名備份後再重試，資料保留在備份檔可挽救。
+            // store 的實際位置見 StoreRescue 的說明（在 App Group 容器裡，不是 Application Support）。
             let config = ModelConfiguration(schema: schema, cloudKitDatabase: .none)
             do {
                 container = try ModelContainer(for: schema, configurations: config)
             } catch {
-                let stamp = Int(Date().timeIntervalSince1970)
-                for ext in ["", "-wal", "-shm"] {
-                    let original = URL(fileURLWithPath: storeURL.path + ext)
-                    guard FileManager.default.fileExists(atPath: original.path) else { continue }
-                    let backup = URL(fileURLWithPath: storeURL.path + ext + ".corrupt-\(stamp).bak")
-                    try? FileManager.default.moveItem(at: original, to: backup)
+                // 先原地重試一次，吸收暫時性的檔案鎖定或 I/O 錯誤——
+                // 這類錯誤不該讓使用者的帳本被改名備份。
+                if let retried = try? ModelContainer(for: schema, configurations: config) {
+                    container = retried
+                } else {
+                    if let storeURL = StoreRescue.existingStoreURL() {
+                        StoreRescue.backupStore(at: storeURL)
+                    }
+                    // 備份後以全新 store 重試；仍失敗才退回記憶體容器（原始資料仍在 .bak 備份）
+                    container = (try? ModelContainer(for: schema, configurations: config))
+                        ?? (try! ModelContainer(
+                            for: Group.self, Member.self, Expense.self, ExpenseSplit.self, HistoryRecord.self, QuickSplit.self,
+                            configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
+                        ))
+                    // 使用者的帳本這次打不開，一定要讓他知道，不能靜悄悄開一個空的
+                    StoreRescue.markRescued()
                 }
-                // 備份後以全新 store 重試；仍失敗才退回記憶體容器（原始資料仍在 .bak 備份）
-                container = (try? ModelContainer(for: schema, configurations: config))
-                    ?? (try! ModelContainer(
-                        for: Group.self, Member.self, Expense.self, ExpenseSplit.self, HistoryRecord.self, QuickSplit.self,
-                        configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
-                    ))
             }
+            StoreRescue.recordStoreURL(container.configurations.first?.url)
         }
 
         // 背景任務 handler 必須在 app 完成啟動前註冊

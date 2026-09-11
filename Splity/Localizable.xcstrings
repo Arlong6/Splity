@@ -340,6 +340,22 @@
         }
       }
     },
+    "上次開啟時讀不到你的帳本資料，已保留一份備份並重新建立。如果帳目不見了，先不要刪除 app，聯絡我們還有機會救回。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your ledger data could not be read on the last launch. A backup was kept and a fresh database was created. If your ledgers are missing, do not delete the app — contact us and they may still be recoverable."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上次開啟時讀不到你的帳本資料，已保留一份備份並重新建立。如果帳目不見了，先不要刪除 app，聯絡我們還有機會救回。"
+          }
+        }
+      }
+    },
     "下一步": {
       "comment": "A button label indicating the next action in a sequence.",
       "localizations": {
@@ -1222,6 +1238,22 @@
         }
       }
     },
+    "帳目": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ledger"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "帳目"
+          }
+        }
+      }
+    },
     "帳目名稱": {
       "localizations": {
         "en": {
@@ -1793,6 +1825,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "無法刪除"
+          }
+        }
+      }
+    },
+    "無法開啟原本的資料": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could Not Open Your Data"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法開啟原本的資料"
           }
         }
       }
@@ -2460,6 +2508,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "還原"
+          }
+        }
+      }
+    },
+    "還原失敗": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore Failed"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "還原失敗"
           }
         }
       }

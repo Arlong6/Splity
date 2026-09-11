@@ -259,7 +259,9 @@ struct ChangeBaseCurrencyView: View {
             let sharedGroup = group
             let manager = sharingManager
             Task {
-                try? await manager.pushChanges(for: sharedGroup)
+                await manager.pushInBackground {
+                    try await manager.pushChanges(for: sharedGroup)
+                }
                 await manager.logActivity(
                     for: sharedGroup,
                     action: .editedExpense,

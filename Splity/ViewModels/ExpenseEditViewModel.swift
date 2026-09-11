@@ -72,6 +72,33 @@ final class ExpenseEditViewModel {
         customAmounts.values.contains { !$0.isEmpty }
     }
 
+    /// 把基準幣的拆帳金額還原成原始輸入幣別，並把進位殘值補到金額最大的那一筆，
+    /// 使加總精確等於原始總額。
+    ///
+    /// 寫入時每筆 split 都已依基準幣進位，除回匯率後的加總幾乎不可能剛好等於原始總額
+    /// （例：TWD 帳本、USD 21 元自訂 10.5/10.5、匯率 31.623 → 存 333/333 →
+    /// 還原成 10.5303… 兩筆加總 21.0606 ≠ 21）。差額補在最大的一筆上，
+    /// 代價是該筆可能與當初輸入差一個最小貨幣單位。
+    static func restoreForeignSplits(
+        baseAmounts: [(id: UUID, amount: Decimal)],
+        rate: Decimal,
+        originalTotal: Decimal,
+        currencyCode: String
+    ) -> [UUID: Decimal] {
+        guard rate > 0, !baseAmounts.isEmpty else { return [:] }
+
+        var restored = baseAmounts.map {
+            (id: $0.id, amount: Decimal.round($0.amount / rate, in: currencyCode))
+        }
+        let sum = restored.reduce(Decimal(0)) { $0 + $1.amount }
+        let residual = originalTotal - sum
+        if residual != 0,
+           let target = restored.indices.max(by: { restored[$0].amount < restored[$1].amount }) {
+            restored[target].amount += residual
+        }
+        return Dictionary(uniqueKeysWithValues: restored.map { ($0.id, $0.amount) })
+    }
+
     var isValid: Bool {
         guard !title.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
         guard let total = totalAmount, total > 0 else { return false }
@@ -127,11 +154,29 @@ final class ExpenseEditViewModel {
             let inferredEven = !amounts.isEmpty && amounts.allSatisfy { $0 == amounts.first }
             isEvenSplit = expense.isEvenSplit ?? inferredEven
 
-            for split in expense.splits {
-                if let member = split.member {
+            if expense.isForeignCurrency, restoreRate > 0, let originalAmt = expense.originalAmount {
+                // 外幣：splits 是「已進位的基準幣」，單純除回匯率加總不會等於原始總額，
+                // isValid 的 customAmountsSum == total 因此永遠不成立 → 儲存鈕鎖死、無法重新編輯。
+                let pairs = expense.splits.compactMap { split -> (id: UUID, amount: Decimal)? in
+                    guard let member = split.member else { return nil }
                     selectedMemberIDs.insert(member.id)
-                    let originalSplit = restoreRate > 0 ? split.amount / restoreRate : split.amount
-                    customAmounts[member.id] = "\(originalSplit)"
+                    return (member.id, split.amount)
+                }
+                let restored = Self.restoreForeignSplits(
+                    baseAmounts: pairs,
+                    rate: restoreRate,
+                    originalTotal: originalAmt,
+                    currencyCode: expense.originalCurrencyCode ?? selectedCurrencyCode
+                )
+                for (id, amount) in restored {
+                    customAmounts[id] = "\(amount)"
+                }
+            } else {
+                for split in expense.splits {
+                    if let member = split.member {
+                        selectedMemberIDs.insert(member.id)
+                        customAmounts[member.id] = "\(split.amount)"
+                    }
                 }
             }
         } else {
@@ -269,7 +314,9 @@ final class ExpenseEditViewModel {
                 }()
                 let sharedGroup = group
                 Task {
-                    try? await FirebaseSharingManager.shared.pushExpense(savedExpense, in: sharedGroup)
+                    await FirebaseSharingManager.shared.pushInBackground {
+                        try await FirebaseSharingManager.shared.pushExpense(savedExpense, in: sharedGroup)
+                    }
                     await FirebaseSharingManager.shared.logActivity(
                         for: sharedGroup,
                         action: wasNew ? .addedExpense : .editedExpense,

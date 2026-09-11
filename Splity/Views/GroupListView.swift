@@ -20,6 +20,7 @@ struct GroupListView: View {
     @State private var renameText = ""
     @State private var showingHistory = false
     @State private var path = NavigationPath()
+    @State private var showingStoreRescueNotice = false
     @State private var joinSuccess = false
     @State private var saveError: String?
     @State private var updateChecker = AppUpdateChecker.shared
@@ -52,12 +53,19 @@ struct GroupListView: View {
                 .onAppear {
                     updateWidget()
                     refreshUnread()
+                    // 上次啟動時資料庫打不開、已改名備份：一定要讓使用者知道
+                    if StoreRescue.consumeRescueFlag() { showingStoreRescueNotice = true }
                     // 有共享帳本才要通知權限（背景活動通知用）；授權框只會跳一次
                     if groups.contains(where: { $0.isShared }) {
                         ActivityNotifier.requestPermissionIfNeeded()
                     }
                 }
                 .task { await updateChecker.checkIfNeeded() }
+                .alert("無法開啟原本的資料", isPresented: $showingStoreRescueNotice) {
+                    Button("好") { showingStoreRescueNotice = false }
+                } message: {
+                    Text("上次開啟時讀不到你的帳本資料，已保留一份備份並重新建立。如果帳目不見了，先不要刪除 app，聯絡我們還有機會救回。")
+                }
                 .alert("有新版本可用", isPresented: $updateChecker.updateAvailable) {
                     Button("前往更新") { updateChecker.openAppStore() }
                     Button("稍後再說", role: .cancel) { updateChecker.skipCurrentVersion() }

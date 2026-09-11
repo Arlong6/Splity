@@ -77,6 +77,10 @@ struct GroupDetailView: View {
                     claimForShare = false
                     showingClaimPicker = true
                 }
+                // 使用者離開畫面後才失敗的背景推送，在這裡補報
+                if let pending = sharingManager.consumePendingSyncError() {
+                    syncError = "同步失敗：\(pending)"
+                }
                 markActivitySeen()
             }
             .onDisappear {
