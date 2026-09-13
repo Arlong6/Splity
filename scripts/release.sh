@@ -16,6 +16,11 @@ ARCHIVE_DIR="$PROJECT_DIR/build/archives"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 ARCHIVE_PATH="$ARCHIVE_DIR/Splity_$TIMESTAMP.xcarchive"
 SKIP_TESTS=false
+# App Store Connect API key：從終端機以外的環境（例如 Claude Code）跑時，
+# Xcode 的 Apple 帳號 session 拿不到，會噴「Failed to Use Accounts」；API key 不受影響。
+ASC_KEY_ID="RJ9M36258H"
+ASC_ISSUER_ID="83751deb-a3d0-41ca-96b5-649816dc27f9"
+ASC_KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8"
 
 # ── 參數解析 ──────────────────────────────────────────────────────────────────
 for arg in "$@"; do
@@ -55,7 +60,7 @@ log "目前版本：$CURRENT_VERSION ($CURRENT_BUILD)"
 
 # ── 步驟 2：詢問是否要更新版號 ────────────────────────────────────────────────
 echo ""
-echo "要更新版號嗎？（目前：$CURRENT_VERSION，Build $CURRENT_BUILD）"
+echo "要更新版號嗎？（目前：${CURRENT_VERSION}，Build ${CURRENT_BUILD}）"
 echo "  1) 只升 Build 號（$CURRENT_BUILD → $((CURRENT_BUILD + 1))）"
 echo "  2) 升 Patch 版本（例：1.0 → 1.0.1）"
 echo "  3) 升 Minor 版本（例：1.0 → 1.1）"
@@ -86,7 +91,7 @@ case $VERSION_CHOICE in
     ;;
   5)
     read -r -p "輸入新版號（例：1.2.0）：" CUSTOM_VERSION
-    read -r -p "輸入新 Build 號（目前：$CURRENT_BUILD）：" CUSTOM_BUILD
+    read -r -p "輸入新 Build 號（目前：${CURRENT_BUILD}）：" CUSTOM_BUILD
     set_version "$CUSTOM_VERSION"
     set_build "$CUSTOM_BUILD"
     ok "版本更新為 $CUSTOM_VERSION ($CUSTOM_BUILD)"
@@ -132,6 +137,10 @@ xcodebuild -exportArchive \
   -archivePath "$ARCHIVE_PATH" \
   -exportOptionsPlist "$EXPORT_OPTIONS" \
   -exportPath "$ARCHIVE_DIR/export_$TIMESTAMP" \
+  -authenticationKeyPath "$ASC_KEY_PATH" \
+  -authenticationKeyID "$ASC_KEY_ID" \
+  -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+  -allowProvisioningUpdates \
   || fail "上傳失敗"
 ok "上傳完成！"
 
