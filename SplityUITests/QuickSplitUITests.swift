@@ -8,7 +8,9 @@ final class QuickSplitUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments = ["-IS_UI_TESTING", "YES", "-UIResetDefaults"]
+        // 語言釘死：EnglishLocaleTests 會把 AppleLanguages 寫進 app 的偏好，
+        // 不釘的話跑在它後面的測試會拿到英文介面而找不到中文標籤。
+        app.launchArguments = ["-IS_UI_TESTING", "YES", "-UIResetDefaults", "-appLanguage", "zh-Hant", "-AppleLanguages", "(zh-Hant)"]
         app.launch()
     }
 
@@ -39,6 +41,17 @@ final class QuickSplitUITests: XCTestCase {
 
     private func hasFocus(_ element: XCUIElement) -> Bool {
         (element.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
+    }
+
+    /// sheet 還在轉場、或 @FocusState 剛把焦點指去別處時，單次點擊常常拿不到鍵盤焦點。
+    private func focusAndType(_ field: XCUIElement, _ text: String, name: String) {
+        XCTAssertTrue(field.waitForExistence(timeout: 5), "\(name) 不存在")
+        for _ in 0..<4 where !hasFocus(field) {
+            field.tap()
+            _ = field.waitForExistence(timeout: 1)
+        }
+        XCTAssertTrue(hasFocus(field), "\(name) 拿不到鍵盤焦點")
+        field.typeText(text)
     }
 
     private func type(_ identifier: String, row index: Int, _ text: String) {
@@ -74,10 +87,7 @@ final class QuickSplitUITests: XCTestCase {
         screenshot("02-quick-split-empty")
 
         app.buttons["開始分帳"].tap()
-        let titleField = app.textFields["例如：週五晚餐"]
-        XCTAssertTrue(titleField.waitForExistence(timeout: 5))
-        titleField.tap()
-        titleField.typeText("週五晚餐")
+        focusAndType(app.textFields["例如：週五晚餐"], "週五晚餐", name: "名稱欄")
 
         fillRow(0, name: "小明", paid: "1000")
         fillRow(1, name: "小華", share: "400")

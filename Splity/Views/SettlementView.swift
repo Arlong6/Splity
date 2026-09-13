@@ -27,12 +27,13 @@ struct SettlementView: View {
     }
 
     private var settlementShareText: String {
-        var lines = ["【\(group.name)】結算明細"]
+        var lines = [localized("【\(group.name)】結算明細")]
         for s in settlements {
             let amount = s.amount.formatted(.currency(code: currencyCode))
             lines.append("• \(s.from.name) → \(s.to.name)  \(amount)")
         }
-        lines.append("\n共 \(settlements.count) 筆轉帳可結清所有帳目")
+        lines.append("")
+        lines.append(localized("共 \(settlements.count) 筆轉帳可結清所有帳目"))
         return lines.joined(separator: "\n")
     }
 

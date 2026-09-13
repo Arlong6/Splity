@@ -28,15 +28,15 @@ struct InviteShareSheet: View {
     }
 
     private var shareMessage: String {
-        """
-        一起來分帳！
-
-        加入「\(groupName)」帳目
-        邀請碼：\(inviteCode)
-
-        下載 Splity：https://apps.apple.com/app/id6760477233
-        打開 App → 輸入邀請碼即可加入
-        """
+        [
+            localized("一起來分帳！"),
+            "",
+            localized("加入「\(groupName)」帳目"),
+            localized("邀請碼：\(inviteCode)"),
+            "",
+            localized("下載 Splity：https://apps.apple.com/app/id6760477233"),
+            localized("打開 App → 輸入邀請碼即可加入"),
+        ].joined(separator: "\n")
     }
 
     var body: some View {
@@ -49,6 +49,7 @@ struct InviteShareSheet: View {
                     Image(systemName: "xmark")
                         .font(.body.weight(.semibold))
                         .foregroundStyle(.secondary)
+                        .accessibilityLabel(localized("關閉"))
                         .padding(8)
                         .background(Color(.systemGray5), in: Circle())
                 }

@@ -9,7 +9,9 @@ final class SplityScreenshotTests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments = ["-IS_UI_TESTING", "YES", "-UIResetDefaults"]
+        // 語言釘死：EnglishLocaleTests 會把 AppleLanguages 寫進 app 的偏好，
+        // 不釘的話跑在它後面的測試會拿到英文介面而找不到中文標籤。
+        app.launchArguments = ["-IS_UI_TESTING", "YES", "-UIResetDefaults", "-appLanguage", "zh-Hant", "-AppleLanguages", "(zh-Hant)"]
         app.launch()
     }
 

@@ -6,28 +6,34 @@ private struct OnboardingPage {
     let description: String
 }
 
-private let pages: [OnboardingPage] = [
+// 計算屬性而非常數：常數只會求值一次，使用者切換語言後內容不會跟著變
+private var pages: [OnboardingPage] { [
     OnboardingPage(
         icon: "person.3.fill",
-        title: String(localized: "建立群組"),
-        description: String(localized: "為每次旅遊、聚餐建立專屬群組，把所有成員加進來")
+        title: localized("建立群組"),
+        description: localized("為每次旅遊、聚餐建立專屬群組，把所有成員加進來")
     ),
     OnboardingPage(
         icon: "creditcard.fill",
-        title: String(localized: "記錄費用"),
-        description: String(localized: "每筆消費都記得清清楚楚，選擇誰付款、平均分攤或自訂金額")
+        title: localized("記錄費用"),
+        description: localized("每筆消費都記得清清楚楚，選擇誰付款、平均分攤或自訂金額")
     ),
     OnboardingPage(
         icon: "arrow.left.arrow.right.circle.fill",
-        title: String(localized: "一鍵結算"),
-        description: String(localized: "自動計算最少轉帳次數，誰欠誰多少一目了然")
+        title: localized("一鍵結算"),
+        description: localized("自動計算最少轉帳次數，誰欠誰多少一目了然")
+    ),
+    OnboardingPage(
+        icon: "divide.circle.fill",
+        title: localized("偶爾吃飯不用建群組"),
+        description: localized("一次性的飯局用快速分帳：填誰先出了多少、誰該付多少，馬上算出誰給誰")
     ),
     OnboardingPage(
         icon: "checkmark.seal.fill",
-        title: String(localized: "輕鬆完成"),
-        description: String(localized: "結算完畢後封存群組，歷史紀錄隨時查閱")
+        title: localized("輕鬆完成"),
+        description: localized("結算完畢後封存群組，歷史紀錄隨時查閱")
     )
-]
+] }
 
 struct OnboardingView: View {
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false

@@ -168,7 +168,7 @@ struct QuickSplitEditView: View {
 
     private func displayName(_ row: Row) -> String {
         row.name.trimmingCharacters(in: .whitespaces).isEmpty
-            ? String(localized: "成員")
+            ? localized("成員")
             : row.name
     }
 
@@ -221,8 +221,8 @@ struct QuickSplitEditView: View {
         let assigned = result.assignedTotal.formatted(.currency(code: currencyCode))
         let gap = abs(result.remaining).formatted(.currency(code: currencyCode))
         return result.remaining > 0
-            ? String(localized: "應付合計 \(assigned)，比總額少 \(gap)")
-            : String(localized: "應付合計 \(assigned)，比總額多 \(gap)")
+            ? localized("應付合計 \(assigned)，比總額少 \(gap)")
+            : localized("應付合計 \(assigned)，比總額多 \(gap)")
     }
 
     // MARK: - 儲存

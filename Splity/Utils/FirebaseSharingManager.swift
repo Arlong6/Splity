@@ -710,7 +710,7 @@ final class FirebaseSharingManager {
         details: String? = nil
     ) async {
         guard let groupId = group.firestoreGroupId else { return }
-        let actorName = await MainActor.run { claimedMember(in: group)?.name ?? "匿名" }
+        let actorName = await MainActor.run { claimedMember(in: group)?.name ?? localized("匿名") }
         await logActivity(
             groupId: groupId,
             actorName: actorName,
@@ -968,17 +968,17 @@ extension ActivityAction {
     /// 動作的顯示文案（活動頁列表與本地通知共用）。
     var displayText: String {
         switch self {
-        case .sharedGroup: return "分享了帳目"
-        case .joinedGroup: return "加入了帳目"
-        case .addedMember: return "加入了成員"
-        case .removedMember: return "移除了成員"
-        case .addedExpense: return "新增了花費"
-        case .editedExpense: return "編輯了花費"
-        case .renamedExpense: return "改了花費名稱"
-        case .deletedExpense: return "刪除了花費"
-        case .restoredExpense: return "還原了花費"
-        case .settledGroup: return "標記為結清"
-        case .unsettledGroup: return "取消結清"
+        case .sharedGroup: return localized("分享了帳目")
+        case .joinedGroup: return localized("加入了帳目")
+        case .addedMember: return localized("加入了成員")
+        case .removedMember: return localized("移除了成員")
+        case .addedExpense: return localized("新增了花費")
+        case .editedExpense: return localized("編輯了花費")
+        case .renamedExpense: return localized("改了花費名稱")
+        case .deletedExpense: return localized("刪除了花費")
+        case .restoredExpense: return localized("還原了花費")
+        case .settledGroup: return localized("標記為結清")
+        case .unsettledGroup: return localized("取消結清")
         }
     }
 }
@@ -1027,10 +1027,10 @@ enum SharingError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .notAuthenticated: return "請確認網路連線後再試"
-        case .inviteCodeNotFound: return "找不到此邀請碼，請確認輸入是否正確"
-        case .inviteCodeExpired: return "邀請碼已過期，請向對方索取新的邀請碼"
-        case .groupNotFound: return "找不到共享的帳目"
+        case .notAuthenticated: return localized("請確認網路連線後再試")
+        case .inviteCodeNotFound: return localized("找不到此邀請碼，請確認輸入是否正確")
+        case .inviteCodeExpired: return localized("邀請碼已過期，請向對方索取新的邀請碼")
+        case .groupNotFound: return localized("找不到共享的帳目")
         }
     }
 }

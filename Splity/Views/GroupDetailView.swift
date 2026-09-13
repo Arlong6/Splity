@@ -369,7 +369,7 @@ struct GroupDetailView: View {
         for index in offsets {
             let member = sortedMembers[index]
             if member.claimedByUid != nil {
-                memberDeletionError = "\(member.name) 已綁定身份，無法刪除。"
+                memberDeletionError = localized("\(member.name) 已綁定身份，無法刪除。")
                 return
             }
             // 含「已封存（軟刪除）」花費一起檢查：否則刪掉此成員後，日後從歷史還原該花費

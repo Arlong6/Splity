@@ -14,12 +14,13 @@ struct QuickSplitResultView: View {
     private var currencyCode: String { split.currencyCode }
 
     private var shareText: String {
-        var lines = ["【\(split.title)】快速分帳"]
-        lines.append("總額 \(result.total.formatted(.currency(code: currencyCode)))，\(result.participantCount) 人")
+        var lines = [localized("【\(split.title)】快速分帳")]
+        let totalText = result.total.formatted(.currency(code: currencyCode))
+        lines.append(localized("總額 \(totalText)，\(result.participantCount) 人"))
         for p in result.participants {
             let paid = p.paid.formatted(.currency(code: currencyCode))
             let share = result.share(for: p).formatted(.currency(code: currencyCode))
-            lines.append("• \(p.name)　先出 \(paid)　應付 \(share)")
+            lines.append(localized("• \(p.name)　先出 \(paid)　應付 \(share)"))
         }
         if !result.transfers.isEmpty {
             lines.append("")

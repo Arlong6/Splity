@@ -241,7 +241,7 @@ final class ExpenseEditViewModel {
     func save(modelContext: ModelContext, pushToCloud: Bool = false) -> String? {
         guard isValid,
               let total = totalAmount,
-              let payer = selectedPayer else { return "資料不完整，請確認所有欄位已填寫" }
+              let payer = selectedPayer else { return localized("資料不完整，請確認所有欄位已填寫") }
 
         // 計算實際存進 SwiftData 的基準幣金額 + metadata
         let rate: Decimal? = isForeign ? lockedRate : nil

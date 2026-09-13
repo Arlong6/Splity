@@ -21,8 +21,8 @@ final class CurrencyService {
     ]
 
     static func displayName(for code: String) -> String {
-        let locale = Locale(identifier: "zh-Hant")
-        return locale.localizedString(forCurrencyCode: code) ?? code
+        // 曾經寫死 zh-Hant，導致使用者把 app 切成英文後幣別名稱仍是「美元」
+        AppLanguage.locale.localizedString(forCurrencyCode: code) ?? code
     }
 
     /// 用 ISO 4217 currency code 反推發行地區國旗 emoji。台幣特例。
@@ -64,8 +64,8 @@ final class CurrencyService {
 
         var errorDescription: String? {
             switch self {
-            case .invalidResponse: return "匯率服務回應異常"
-            case .rateNotFound:    return "找不到此幣別的匯率"
+            case .invalidResponse: return localized("匯率服務回應異常")
+            case .rateNotFound:    return localized("找不到此幣別的匯率")
             }
         }
     }

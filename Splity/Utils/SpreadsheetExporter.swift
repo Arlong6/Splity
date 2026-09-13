@@ -10,18 +10,18 @@ enum SpreadsheetExporter {
         var lines: [String] = []
 
         // 結算幣別說明列
-        lines.append([escape("結算幣別"), escape("\(baseCode) (\(CurrencyService.displayName(for: baseCode)))")]
+        lines.append([escape(localized("結算幣別")), escape("\(baseCode) (\(CurrencyService.displayName(for: baseCode)))")]
             .joined(separator: ","))
         lines.append("")
 
         // Header row: 品項, [members...], 總價
-        let header = (["品項"] + members.map { $0.name } + ["總價"])
+        let header = ([localized("品項")] + members.map { $0.name } + [localized("總價")])
             .map(escape).joined(separator: ",")
         lines.append(header)
 
         // 大家要付的
         lines.append("")
-        lines.append(escape("大家要付的"))
+        lines.append(escape(localized("大家要付的")))
         for expense in expenses {
             // 總價以各成員分攤加總為準：均分採無條件進位時 sum(splits) 可能略大於原始
             // totalAmount，唯有用 sum(splits) 才能讓成員欄位、總價欄與下方淨額列三者勾稽。
@@ -37,7 +37,7 @@ enum SpreadsheetExporter {
 
         // 有人先墊
         lines.append("")
-        lines.append(escape("有人先墊"))
+        lines.append(escape(localized("有人先墊")))
         for expense in expenses {
             let splitsSum = expense.splits.reduce(Decimal(0)) { $0 + $1.amount }
             var cols = [escape(expense.title)]
@@ -52,7 +52,7 @@ enum SpreadsheetExporter {
         // 總花費
         lines.append("")
         let netBalances = SettlementCalculator.computeNetBalances(expenses: expenses)
-        var netCols = [escape("應付/應收")]
+        var netCols = [escape(localized("應付/應收"))]
         for member in members {
             netCols.append(formatDecimal(-(netBalances[member] ?? 0), baseCode: baseCode))
         }
@@ -63,8 +63,8 @@ enum SpreadsheetExporter {
         let foreign = expenses.filter { $0.isForeignCurrency }
         if !foreign.isEmpty {
             lines.append("")
-            lines.append(escape("外幣花費明細"))
-            let foreignHeader = (["品項", "原幣別", "原幣金額", "匯率", "換算後"])
+            lines.append(escape(localized("外幣花費明細")))
+            let foreignHeader = ([localized("品項"), localized("原幣別"), localized("原幣金額"), localized("匯率"), localized("換算後")])
                 .map(escape).joined(separator: ",")
             lines.append(foreignHeader)
             for expense in foreign {
@@ -130,6 +130,6 @@ extension String {
         while cleaned.hasPrefix(".") { cleaned.removeFirst() }
         if cleaned.count > 60 { cleaned = String(cleaned.prefix(60)) }
         cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
-        return cleaned.isEmpty ? String(localized: "帳目") : cleaned
+        return cleaned.isEmpty ? localized("帳目") : cleaned
     }
 }

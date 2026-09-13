@@ -288,14 +288,14 @@ struct GroupListView: View {
                 Label("歷史紀錄", systemImage: "clock.arrow.circlepath")
             }
             Menu {
-                Button(action: { appLanguage = "zh-Hant" }) {
+                Button(action: { selectLanguage("zh-Hant") }) {
                     if appLanguage == "zh-Hant" {
                         Label("繁體中文", systemImage: "checkmark")
                     } else {
                         Text("繁體中文")
                     }
                 }
-                Button(action: { appLanguage = "en" }) {
+                Button(action: { selectLanguage("en") }) {
                     if appLanguage == "en" {
                         Label("English", systemImage: "checkmark")
                     } else {
@@ -304,6 +304,7 @@ struct GroupListView: View {
                 }
             } label: {
                 Image(systemName: "globe")
+                    .accessibilityLabel(localized("語言"))
             }
         }
     }
@@ -317,7 +318,7 @@ struct GroupListView: View {
         let validChars = CharacterSet(charactersIn: "ABCDEFGHJKMNPQRSTUVWXYZ23456789")
         let upperCode = code.uppercased()
         guard upperCode.count == 6, upperCode.unicodeScalars.allSatisfy({ validChars.contains($0) }) else {
-            joinError = "邀請碼格式不正確，請輸入 6 碼英數字"
+            joinError = localized("邀請碼格式不正確，請輸入 6 碼英數字")
             return
         }
         isJoining = true
@@ -494,6 +495,12 @@ struct GroupListView: View {
                 }
             }
         }
+    }
+
+    /// 切換語言：app 自己的字串立即生效，系統介面（導覽列返回鈕等）下次啟動生效。
+    private func selectLanguage(_ identifier: String) {
+        AppLanguage.select(identifier)
+        appLanguage = identifier
     }
 
     private func confirmDeleteGroup() {

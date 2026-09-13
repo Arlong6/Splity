@@ -15,7 +15,9 @@ struct SettlementCardView: View {
                     avatarCircle(name: fromName, color: .red)
                     Text(fromName)
                         .font(.caption.bold())
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.7)
+                        .multilineTextAlignment(.center)
                 }
                 .frame(minWidth: 70)
 
@@ -52,7 +54,9 @@ struct SettlementCardView: View {
                     avatarCircle(name: toName, color: .green)
                     Text(toName)
                         .font(.caption.bold())
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.7)
+                        .multilineTextAlignment(.center)
                 }
                 .frame(minWidth: 70)
             }
@@ -74,6 +78,10 @@ struct SettlementCardView: View {
         .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 3)
+        // 頭像首字、箭頭與 hand.tap 圖示對 VoiceOver 都是雜訊，
+        // 整張卡片合併成一句「誰轉給誰多少」比較好用。
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(localized("\(fromName) 轉給 \(toName) \(amount.formatted(.currency(code: currencyCode)))"))
     }
 
     private func avatarCircle(name: String, color: Color) -> some View {

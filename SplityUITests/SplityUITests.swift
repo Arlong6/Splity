@@ -8,7 +8,9 @@ final class SplityUITests: XCTestCase {
         continueAfterFailure = false
         app = XCUIApplication()
         // -IS_UI_TESTING YES → sets UserDefaults key so app uses in-memory SwiftData (no CloudKit)
-        app.launchArguments = ["-IS_UI_TESTING", "YES"]
+        // 語言釘死：EnglishLocaleTests 會把 AppleLanguages 寫進 app 的偏好，
+        // 不釘的話跑在它後面的測試會拿到英文介面而找不到中文標籤。
+        app.launchArguments = ["-IS_UI_TESTING", "YES", "-appLanguage", "zh-Hant", "-AppleLanguages", "(zh-Hant)"]
     }
 
     // MARK: - Helpers
@@ -94,11 +96,9 @@ final class SplityUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["建立群組"].waitForExistence(timeout: 6))
 
-        // 點三次「下一步」
-        for _ in 1...3 {
-            let nextButton = app.buttons["下一步"]
-            XCTAssertTrue(nextButton.waitForExistence(timeout: 3))
-            nextButton.tap()
+        // 逐頁點「下一步」直到最後一頁（頁數會隨功能增加）
+        while app.buttons["下一步"].exists {
+            app.buttons["下一步"].tap()
         }
 
         // 最後一頁應出現「開始使用」

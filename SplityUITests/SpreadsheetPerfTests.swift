@@ -9,7 +9,7 @@ final class SpreadsheetPerfTests: XCTestCase {
     func testLargeSheetOpenTime() throws {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["-IS_UI_TESTING", "YES", "-UIResetDefaults", "-SeedLargeSheet"]
+        app.launchArguments = ["-IS_UI_TESTING", "YES", "-UIResetDefaults", "-SeedLargeSheet", "-appLanguage", "zh-Hant", "-AppleLanguages", "(zh-Hant)"]
         app.launch()
 
         if app.buttons["跳過"].waitForExistence(timeout: 8) {

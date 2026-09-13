@@ -134,7 +134,7 @@ struct MemberClaimView: View {
         let trimmed = newMemberName.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
         guard !group.members.contains(where: { $0.name == trimmed }) else {
-            errorMessage = "群組內已有同名成員，請選擇或換個名字"
+            errorMessage = localized("群組內已有同名成員，請選擇或換個名字")
             return
         }
         let member = Member(name: trimmed)

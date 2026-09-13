@@ -247,7 +247,7 @@ struct ExpenseSpreadsheetView: View {
                     rowHeight: rH,
                     viewportWidth: geo.size.width,
                     content: headerRow,
-                    corner: hCell("品項", w: iW)
+                    corner: hCell(localized("品項"), w: iW)
                 )
             }
         }
@@ -259,6 +259,7 @@ struct ExpenseSpreadsheetView: View {
             ToolbarItem(placement: .cancellationAction) {
                 Button { dismiss() } label: {
                     Image(systemName: "xmark").fontWeight(.semibold)
+                        .accessibilityLabel(localized("關閉"))
                 }
             }
             ToolbarItem(placement: .primaryAction) {
@@ -318,7 +319,7 @@ struct ExpenseSpreadsheetView: View {
             headerRow
 
             // ── 大家要付的 ───────────────────────────────────────
-            secRow("大家要付的")
+            secRow(localized("大家要付的"))
             ForEach(Array(ev.enumerated()), id: \.element.id) { idx, row in
                 HStack(spacing: 0) {
                     lCell(row.title, w: iW, bg: rowBg(idx))
@@ -332,7 +333,7 @@ struct ExpenseSpreadsheetView: View {
             // ── 大家要付的 小計 ───────────────────────────────────
             let sub = sheet.subtotals
             HStack(spacing: 0) {
-                lCell("個人花費", w: iW, bg: amberColor, bold: true)
+                lCell(localized("個人花費"), w: iW, bg: amberColor, bold: true)
                 ForEach(sub.indices, id: \.self) { i in
                     netCell(sub[i], w: mW, highlight: i == myCol)
                 }
@@ -340,7 +341,7 @@ struct ExpenseSpreadsheetView: View {
             }
 
             // ── 有人先墊 ─────────────────────────────────────────
-            secRow("有人先墊")
+            secRow(localized("有人先墊"))
             ForEach(Array(pu.enumerated()), id: \.element.id) { idx, row in
                 HStack(spacing: 0) {
                     lCell(row.title, w: iW, bg: rowBg(idx))
@@ -353,7 +354,7 @@ struct ExpenseSpreadsheetView: View {
 
             // ── 總花費 ───────────────────────────────────────────
             HStack(spacing: 0) {
-                lCell("應付/應收", w: iW, bg: amberColor, bold: true)
+                lCell(localized("應付/應收"), w: iW, bg: amberColor, bold: true)
                 ForEach(net.indices, id: \.self) { i in
                     netCell(net[i], w: mW, highlight: i == myCol)
                 }
@@ -365,11 +366,11 @@ struct ExpenseSpreadsheetView: View {
     /// 表頭列(內容與凍結覆蓋共用同一份,確保欄寬對齊)
     private var headerRow: some View {
         HStack(spacing: 0) {
-            hCell("品項", w: iW)
+            hCell(localized("品項"), w: iW)
             ForEach(Array(sortedMembers.enumerated()), id: \.element.persistentModelID) { i, m in
                 hCell(m.name, w: mW, highlight: i == myCol)
             }
-            hCell("總價", w: tW)
+            hCell(localized("總價"), w: tW)
         }
     }
 
@@ -378,17 +379,17 @@ struct ExpenseSpreadsheetView: View {
     /// 品項欄的完整縱向序列,列高與 tableContent 一一對應(皆為 rH)。
     private var leftColumn: some View {
         VStack(alignment: .leading, spacing: 0) {
-            hCell("品項", w: iW)
-            secLeftCell("大家要付的")
+            hCell(localized("品項"), w: iW)
+            secLeftCell(localized("大家要付的"))
             ForEach(Array(sheet.evRows.enumerated()), id: \.element.id) { idx, row in
                 lCell(row.title, w: iW, bg: rowBg(idx))
             }
-            lCell("個人花費", w: iW, bg: amberColor, bold: true)
-            secLeftCell("有人先墊")
+            lCell(localized("個人花費"), w: iW, bg: amberColor, bold: true)
+            secLeftCell(localized("有人先墊"))
             ForEach(Array(sheet.puRows.enumerated()), id: \.element.id) { idx, row in
                 lCell(row.title, w: iW, bg: rowBg(idx))
             }
-            lCell("應付/應收", w: iW, bg: amberColor, bold: true)
+            lCell(localized("應付/應收"), w: iW, bg: amberColor, bold: true)
         }
     }
 
@@ -396,6 +397,7 @@ struct ExpenseSpreadsheetView: View {
     private func secLeftCell(_ label: String) -> some View {
         Text(label)
             .font(.system(size: fS, weight: .bold))
+            .dynamicTypeSize(...DynamicTypeSize.accessibility1)
             .foregroundStyle(Color.indigo)
             .padding(.leading, 8)
             .lineLimit(1)
@@ -411,6 +413,7 @@ struct ExpenseSpreadsheetView: View {
     private func hCell(_ text: String, w: CGFloat, highlight: Bool = false) -> some View {
         Text(text)
             .font(.system(size: fS, weight: .bold))
+            .dynamicTypeSize(...DynamicTypeSize.accessibility1)
             .foregroundStyle(.white)
             .lineLimit(1)
             .minimumScaleFactor(0.5)
@@ -422,6 +425,7 @@ struct ExpenseSpreadsheetView: View {
     private func secRow(_ label: String) -> some View {
         Text(label)
             .font(.system(size: fS, weight: .bold))
+            .dynamicTypeSize(...DynamicTypeSize.accessibility1)
             .foregroundStyle(Color.indigo)
             .padding(.leading, 8)
             .frame(width: tableWidth, height: rH, alignment: .leading)

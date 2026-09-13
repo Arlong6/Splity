@@ -62,9 +62,9 @@ enum ActivityNotifier {
             let content = UNMutableNotificationContent()
             content.title = group.name
             if fresh.count == 1, let entry = fresh.first {
-                content.body = "\(entry.actorName) \(entry.action.displayText)「\(entry.target)」"
+                content.body = localized("\(entry.actorName) \(entry.action.displayText)「\(entry.target)」")
             } else {
-                content.body = "有 \(fresh.count) 筆新動態"
+                content.body = localized("有 \(fresh.count) 筆新動態")
             }
             content.sound = .default
             // 同帳本固定 id：新通知取代舊的，不洗版

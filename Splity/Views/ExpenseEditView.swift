@@ -141,6 +141,12 @@ struct ExpenseEditView: View {
                             }
                         }
                         .buttonStyle(.plain)
+                        // VoiceOver 只報「姓名, 按鈕」，聽不出有沒有被勾選；
+                        // 盲用戶因此無法確認某人是否已被排除在這筆分帳之外。
+                        .accessibilityLabel(member.name)
+                        .accessibilityAddTraits(
+                            viewModel.selectedMemberIDs.contains(member.id) ? [.isSelected] : []
+                        )
 
                         Spacer()
 
@@ -151,7 +157,10 @@ struct ExpenseEditView: View {
                             ))
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
-                            .frame(width: 100)
+                            .frame(minWidth: 80)
+                            .fixedSize(horizontal: true, vertical: false)
+                            // 否則 VoiceOver 會聽到 N 個一模一樣的「金額」欄位
+                            .accessibilityLabel(localized("\(member.name) 分攤金額"))
                         }
                     }
                 }
