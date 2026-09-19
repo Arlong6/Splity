@@ -1,8 +1,10 @@
 import SwiftUI
 import SwiftData
+import StoreKit
 
 struct GroupListView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.requestReview) private var requestReview
     @Query(sort: \Group.createdAt, order: .reverse) private var groups: [Group]
 
     @Environment(FirebaseSharingManager.self) private var sharingManager
@@ -242,7 +244,7 @@ struct GroupListView: View {
                             Button {
                                 group.isSettled = false
                                 save()
-                                pushMetaIfShared(group, logging: .unsettledGroup)
+                                Task { await pushMetaIfShared(group, logging: .unsettledGroup) }
                             } label: {
                                 Label("取消結清", systemImage: "arrow.uturn.backward")
                             }
@@ -448,7 +450,7 @@ struct GroupListView: View {
         group.name = trimmed
         groupToRename = nil
         save()
-        pushMetaIfShared(group)
+        Task { await pushMetaIfShared(group) }
     }
 
     private func performSettle(_ group: Group) {
@@ -460,23 +462,46 @@ struct GroupListView: View {
         )
         modelContext.insert(record)
         group.isSettled = true
-        save()
-        pushMetaIfShared(group, logging: .settledGroup)
+        // 本機存檔失敗就不算結清成功：不計次、也不問評分
+        guard save() else { return }
+        Task {
+            // 共享帳本要等 Firestore 真的收下才算成功。推送被拒（匿名登入失敗、
+            // rules 擋下、帳本已被擁有者刪除…）會跳「儲存失敗」，那時絕不能問評分。
+            guard await pushMetaIfShared(group, logging: .settledGroup) else { return }
+            await askForReviewIfEarned(for: group)
+        }
+    }
+
+    /// 結算完成是使用者體驗到價值的時刻，也是唯一適合開口要評分的地方。
+    /// 計數掛在這條「真的結清成功」的路徑上，不是畫面出現時；跳出前先等幾秒，
+    /// 讓帳本移到「已結清」區、使用者看到結果，不要一按完按鈕就攔路。
+    ///
+    /// 等待期間如果冒出任何錯誤 alert（其他非同步操作也會寫 `saveError`）就放棄：
+    /// 在失敗畫面上疊評分面板是製造一星的標準方式，而且系統若因為已有 alert 而不顯示，
+    /// 這一版唯一的機會還是會被燒掉。所以「消費機會」放在真正呼叫的前一刻。
+    private func askForReviewIfEarned(for group: Group) async {
+        ReviewPrompt.recordSettlement(groupId: group.id)
+        try? await Task.sleep(for: ReviewPrompt.delay)
+        guard saveError == nil else { return }
+        guard ReviewPrompt.consumeRequestOpportunity() else { return }
+        requestReview()
     }
 
     /// 共享帳本的列表操作（結清/改名）推送到 Firestore，否則其他成員看不到、
     /// 且下次同步會把本機改動退回遠端舊值。
-    private func pushMetaIfShared(_ group: Group, logging action: ActivityAction? = nil) {
-        guard group.isShared else { return }
-        Task {
-            do {
-                try await sharingManager.pushGroupScalars(for: group)
-                if let action {
-                    await sharingManager.logActivity(for: group, action: action, target: group.name)
-                }
-            } catch {
-                saveError = error.localizedDescription
+    /// 回傳「這次操作有沒有真的成功」；非共享帳本沒有遠端這一段，直接算成功。
+    @discardableResult
+    private func pushMetaIfShared(_ group: Group, logging action: ActivityAction? = nil) async -> Bool {
+        guard group.isShared else { return true }
+        do {
+            try await sharingManager.pushGroupScalars(for: group)
+            if let action {
+                await sharingManager.logActivity(for: group, action: action, target: group.name)
             }
+            return true
+        } catch {
+            saveError = error.localizedDescription
+            return false
         }
     }
 
@@ -519,11 +544,16 @@ struct GroupListView: View {
         save()
     }
 
-    private func save() {
+    /// 回傳存檔有沒有成功。結清流程要用它決定「這次算不算一筆成功結算」，
+    /// 其他呼叫端照舊忽略回傳值。
+    @discardableResult
+    private func save() -> Bool {
         do {
             try modelContext.save()
+            return true
         } catch {
             saveError = error.localizedDescription
+            return false
         }
     }
 
