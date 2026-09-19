@@ -17,3 +17,6 @@ Screenshots/
 # Stray root artifact (empty plist)
 
 .DS_Store
+
+# Python
+__pycache__/
