@@ -2821,6 +2821,38 @@
         }
       }
     },
+    "用 Splity 分帳：": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Split expenses with Splity:"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用 Splity 分帳："
+          }
+        }
+      }
+    },
+    "用 iPhone 的話可以改用 App：": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On iPhone? Use the Splity app:"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用 iPhone 的話可以改用 App："
+          }
+        }
+      }
+    },
     "目前沒有未結清的款項": {
       "localizations": {
         "en": {
@@ -3709,6 +3741,22 @@
         }
       }
     },
+    "邀請你加入「%@」一起分帳": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Join \"%@\" and split expenses together"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "邀請你加入「%@」一起分帳"
+          }
+        }
+      }
+    },
     "邀請碼": {
       "localizations": {
         "en": {
@@ -4136,6 +4184,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "點右上角 + 建立一個新的帳本"
+          }
+        }
+      }
+    },
+    "點連結直接加入：": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap to join:"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "點連結直接加入："
           }
         }
       }

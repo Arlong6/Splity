@@ -28,6 +28,10 @@ struct QuickSplitResultView: View {
                 lines.append("• \(t.from.name) → \(t.to.name)  \(t.amount.formatted(.currency(code: currencyCode)))")
             }
         }
+        // 收到這段的人多半還不知道 Splity；快速分帳沒有邀請碼，所以只給 App Store。
+        lines.append("")
+        lines.append(localized("用 Splity 分帳："))
+        lines.append(SplityLinks.appStore)
         return lines.joined(separator: "\n")
     }
 

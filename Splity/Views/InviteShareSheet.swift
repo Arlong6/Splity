@@ -27,15 +27,25 @@ struct InviteShareSheet: View {
             : "請按「重新產生邀請碼」取得新的 6 碼"
     }
 
+    /// 分享訊息要同時給兩條路：沒有 iPhone 的朋友點網頁版連結（網址已帶邀請碼，
+    /// 不必再手動輸入 6 碼），有 iPhone 的再裝 App。順序是「加入什麼 → 一鍵連結 →
+    /// App Store」，因為這段多半被貼進 LINE，排在後面的沒人看。
+    ///
+    /// 邀請碼一定要自己佔一行。App 上現有的使用者全是 iOS→iOS，流程是
+    /// 「長按複製邀請碼 → 打開 App → 貼進輸入框」；而且這個 app 沒有 universal link
+    /// （AASA 回 404、entitlements 沒有 associated-domains），iPhone 點網頁連結只會進網頁版。
+    /// 把 6 碼塞進全形括號裡，等於逼他們在 LINE 裡精準框選括號中間那段——整行純文字長按就選得起來，
+    /// 括號中間則明顯難很多。
     private var shareMessage: String {
         [
-            localized("一起來分帳！"),
+            localized("邀請你加入「\(groupName)」一起分帳"),
             "",
-            localized("加入「\(groupName)」帳目"),
+            localized("點連結直接加入："),
+            SplityLinks.webJoin(code: inviteCode),
+            "",
+            localized("用 iPhone 的話可以改用 App："),
+            SplityLinks.appStore,
             localized("邀請碼：\(inviteCode)"),
-            "",
-            localized("下載 Splity：https://apps.apple.com/app/id6760477233"),
-            localized("打開 App → 輸入邀請碼即可加入"),
         ].joined(separator: "\n")
     }
 

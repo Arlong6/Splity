@@ -34,6 +34,10 @@ struct SettlementView: View {
         }
         lines.append("")
         lines.append(localized("共 \(settlements.count) 筆轉帳可結清所有帳目"))
+        // 收到這段的人多半還不知道 Splity；沒有邀請碼所以不帶 /join，只給 App Store。
+        lines.append("")
+        lines.append(localized("用 Splity 分帳："))
+        lines.append(SplityLinks.appStore)
         return lines.joined(separator: "\n")
     }
 
