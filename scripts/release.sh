@@ -37,25 +37,32 @@ fail() { echo "✗ $*" >&2; exit 1; }
 # ── 切換到專案目錄 ────────────────────────────────────────────────────────────
 cd "$PROJECT_DIR"
 
-# ── 讀取版號（直接從 project.pbxproj）────────────────────────────────────────
+# ── 讀寫版號（一律透過 scripts/version.rb）──────────────────────────────────
+# 這裡刻意不用 grep/sed 直接碰 project.pbxproj：
+#   讀：MARKETING_VERSION 在檔案裡出現 6 次（app target 兩份、測試 target 四份），
+#       `grep -m1` 拿到哪一個取決於 target 在檔案裡的排列順序，順序一變就會讀到
+#       測試 target 的 1.0。
+#   寫：`sed -i '' "s/MARKETING_VERSION = .*;/.../g"` 會把六處全部改掉，測試 target
+#       的 1.0 會被寫成正式版號。
+# version.rb 用 xcodeproj gem，只動 Splity target 的 Debug/Release 兩份。
 PBXPROJ="$PROJECT_DIR/Splity.xcodeproj/project.pbxproj"
+VERSION_TOOL="$PROJECT_DIR/scripts/version.rb"
 
-read_version() {
-  grep -m1 "MARKETING_VERSION" "$PBXPROJ" | sed 's/.*= \(.*\);/\1/' | tr -d '[:space:]'
-}
-read_build() {
-  grep -m1 "CURRENT_PROJECT_VERSION" "$PBXPROJ" | sed 's/.*= \(.*\);/\1/' | tr -d '[:space:]'
-}
-set_version() {
-  sed -i '' "s/MARKETING_VERSION = .*;/MARKETING_VERSION = $1;/g" "$PBXPROJ"
-}
-set_build() {
-  sed -i '' "s/CURRENT_PROJECT_VERSION = .*;/CURRENT_PROJECT_VERSION = $1;/g" "$PBXPROJ"
+ruby -e "require 'xcodeproj'" 2>/dev/null \
+  || fail "缺少 xcodeproj gem，版號改寫需要它（gem install xcodeproj）。原因見 scripts/version.rb 開頭。"
+
+set_versions() {
+  "$VERSION_TOOL" set "$1" "$2" || fail "版號寫入失敗"
+  plutil -lint "$PBXPROJ" >/dev/null \
+    || fail "版號寫入後 project.pbxproj 格式異常，請用 git checkout 還原後再試"
 }
 
 # ── 步驟 1：顯示目前版本 ──────────────────────────────────────────────────────
-CURRENT_VERSION=$(read_version)
-CURRENT_BUILD=$(read_build)
+VERSIONS="$("$VERSION_TOOL" read)" || fail "讀取版號失敗"
+[ -n "$VERSIONS" ] || fail "讀取版號失敗（version.rb 沒有輸出）"
+CURRENT_VERSION="${VERSIONS%% *}"
+CURRENT_BUILD="${VERSIONS##* }"
+[[ "$CURRENT_BUILD" =~ ^[0-9]+$ ]] || fail "Build 號不是數字：$CURRENT_BUILD"
 log "目前版本：$CURRENT_VERSION ($CURRENT_BUILD)"
 
 # ── 步驟 2：詢問是否要更新版號 ────────────────────────────────────────────────
@@ -72,7 +79,7 @@ read -r -p "選擇 [1/2/3/4/5/n]：" VERSION_CHOICE
 case $VERSION_CHOICE in
   1)
     NEW_BUILD=$((CURRENT_BUILD + 1))
-    set_build "$NEW_BUILD"
+    set_versions "$CURRENT_VERSION" "$NEW_BUILD"
     ok "Build 號更新為 $NEW_BUILD"
     ;;
   2|3|4)
@@ -85,15 +92,13 @@ case $VERSION_CHOICE in
     esac
     NEW_VERSION="$MAJOR.$MINOR.$PATCH"
     NEW_BUILD=$((CURRENT_BUILD + 1))
-    set_version "$NEW_VERSION"
-    set_build "$NEW_BUILD"
+    set_versions "$NEW_VERSION" "$NEW_BUILD"
     ok "版本更新為 $NEW_VERSION ($NEW_BUILD)"
     ;;
   5)
     read -r -p "輸入新版號（例：1.2.0）：" CUSTOM_VERSION
     read -r -p "輸入新 Build 號（目前：${CURRENT_BUILD}）：" CUSTOM_BUILD
-    set_version "$CUSTOM_VERSION"
-    set_build "$CUSTOM_BUILD"
+    set_versions "$CUSTOM_VERSION" "$CUSTOM_BUILD"
     ok "版本更新為 $CUSTOM_VERSION ($CUSTOM_BUILD)"
     ;;
   n|N|*)
@@ -145,8 +150,9 @@ xcodebuild -exportArchive \
 ok "上傳完成！"
 
 # ── 完成 ──────────────────────────────────────────────────────────────────────
-FINAL_VERSION=$(read_version)
-FINAL_BUILD=$(read_build)
+FINAL_VERSIONS="$("$VERSION_TOOL" read)" || fail "讀取版號失敗"
+FINAL_VERSION="${FINAL_VERSIONS%% *}"
+FINAL_BUILD="${FINAL_VERSIONS##* }"
 echo ""
 echo "══════════════════════════════════════════"
 echo "  上架完成 🎉"
