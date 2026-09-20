@@ -1,7 +1,7 @@
 # Splity 1.8.2 App Store 商店頁文案（草稿，待主控審）
 
-草稿日期：2026-09-18
-狀態：**只是草稿檔，沒有任何內容被寫進 App Store Connect。** 所有欄位都要主控自己貼上去。
+草稿日期：2026-09-18／2026-09-20 更新（whatsNew 填實、ASC 現況查證、待確認項目結案）
+狀態：**文案已定稿，但仍未寫進 App Store Connect。** 寫入前需要主控核可。
 
 依據的實查事實（本次跑過）：
 - `itunes.apple.com/lookup?id=6760477233&country=tw` → version 1.8.1、上架 2026-09-13(UTC)、price 0、
@@ -141,19 +141,24 @@ Splity 沒有任何變現機制，也沒有打算加。不放廣告、不賣訂�
 - 「免費版只能記 3 筆」是描述一種**業界常見做法**，沒有指名任何 app，不算貶低競品。
   如果主控覺得這句太針對性，可以直接刪掉後半句，字數不受影響。
 
-### 1.6 whatsNew（架構，等主控補實際改動）— 目前 146 字元 / 4000
-
-尖括號是**待填佔位符，送出前必須全部換掉或刪掉**。
+### 1.6 whatsNew — 已依 1.8.2 實際改動填實（2026-09-20）
 
 <!-- field: ZH_WHATSNEW limit:4000 -->
 ```
-這一版修了什麼：
+這一版改了什麼：
 
-・修正分享邀請連結的問題：<主控補上實際行為，例如「分享出去的連結在某些 App 裡點不開，現在會正確帶到加入頁面」>
-・<其他修正，一行一項，用使用者看得懂的話寫，不要寫 commit message>
+・分享邀請時會一起附上網頁版連結。沒有 iPhone 的朋友點連結就能直接加入帳本，不用再手動輸入 6 碼邀請碼。
+・邀請碼在分享訊息裡改成獨立一行，長按就能整段複製。
+・結算明細與快速分帳的分享訊息也會附上 App Store 連結，收到的人知道去哪裡拿。
+・支援的系統版本下修到 iOS 18，更多裝置可以安裝。
 
 謝謝所有回報問題的人。有任何問題或建議，歡迎從支援連結告訴我們。
 ```
+
+刻意沒有寫進去的兩項：
+
+- **評分提示**：依本文件原本的建議，不寫。它是 app 主動跳出來問使用者的東西，寫進更新說明像在預告會被打擾。
+- **「結算失敗時不再跳評分面板」等內部修正**：使用者從來沒看過那個錯誤組合，寫了只會造成困惑。
 
 關於評分提示：**建議不要寫進 whatsNew。** 評分提示是 app 主動跳出來問使用者的東西，不是使用者
 會期待的「新功能」，寫進更新說明反而像在預告會被打擾。如果主控堅持要寫，用這一行（放在最後）：
@@ -243,14 +248,16 @@ Splity has no way to make money from you, and no plan to add one. If you like it
 Available in English and Traditional Chinese. Questions or ideas: reach us through the support link.
 ```
 
-### 2.6 whatsNew（架構）— 目前 182 chars / 4000
+### 2.6 whatsNew — 已依 1.8.2 實際改動填實（2026-09-20）
 
 <!-- field: EN_WHATSNEW limit:4000 -->
 ```
-What's fixed in this version:
+What's new in this version:
 
-• Invite link sharing: <主控補上實際行為的英文版>
-• <其他修正>
+• Shared invites now include a web link. Friends without an iPhone can tap it and join the ledger straight away, with no six-character code to type in.
+• The invite code sits on its own line in the shared message, so a single long press copies it.
+• Settlement summaries and quick splits now carry an App Store link too, so whoever receives one knows where to find the app.
+• Splity now runs on iOS 18, so it installs on more devices.
 
 Thanks to everyone who reported issues. Questions or ideas are always welcome through the support link.
 ```
@@ -303,10 +310,11 @@ https://splity-web-ten.vercel.app/support
 ⚠️ **這一頁現在是 404，沒做好之前不要填。** 實測：
 `/support` → 404、`/privacy` → 404、`/join/ABC123` → 200。
 
-### 順帶提醒：Privacy Policy URL
+### Privacy Policy URL — 已查證，沒問題（2026-09-20）
 
-這是 ASC 的必填欄位，本次沒有查它目前指向哪裡。**主控請自己確認它不是指到
-`splity-web-ten.vercel.app/privacy`**——那個路徑現在是 404，隱私權政策連結壞掉是 5.1.1 的退件常客。
+ASC 目前填的是 `https://github.com/Arlong6/Splity/blob/main/privacy-policy.html`，
+`curl -sI` 回 **200**。不是指向 `splity-web-ten.vercel.app/privacy`（那個路徑確實還是 404），
+所以沒有 5.1.1 的退件風險，這一版不用動它。
 
 ---
 
@@ -362,12 +370,12 @@ https://splity-web-ten.vercel.app/support
 1. **字元計算方式**：以 Python `len()` 計。我相信 ASC 的計數器結果相同，但**不是 100% 確定**，以 ASC 畫面為準。
 2. **URL 欄位能否不送審直接改**：不確定，看 ASC 欄位是否可編輯。
 3. **新增 en-US 是否強制要英文截圖**：不確定，請用「能不能按下送出」實測。
-4. **Privacy Policy URL 現值**：本次沒查，主控自己確認。
+4. ~~**Privacy Policy URL 現值**：本次沒查~~ → 2026-09-20 已查：GitHub 上的 privacy-policy.html，回 200，可用。
 5. **關鍵字的實際搜尋量**：我沒有 ASO 工具的數據，關鍵字選擇是根據台灣使用者的語言習慣與意圖推論，
    不是量化排序。如果主控有 App Store Connect 的「搜尋詞」報表或第三方 ASO 數據，應該以那個為準覆蓋我的選擇。
 6. **競品情報**：任務交下來的競品數據（Bill Bear 4.93 分／1729 則評分等）我**沒有重新實測**，
    本文只用它來決定「哪些賣點不要寫」，沒有把任何競品數字寫進商店頁文案，所以即使數據過時也不影響文案本身。
-7. **whatsNew 是架構不是成品**：等主控補實際改動清單。
+7. ~~**whatsNew 是架構不是成品**~~ → 2026-09-20 已依 1.8.2 實際改動填實（見 1.6 / 2.6）。
 
 ---
 
@@ -404,10 +412,41 @@ https://splity-web-ten.vercel.app/support
   雖然 onboarding 文案寫了「歷史紀錄隨時查閱」，但商店頁不該這樣宣稱，所以沒寫。
 - **AI 收據掃描、帳號系統、支付整合**：app 沒有，一個字都沒提。
 
-**⚠️ 需要主控確認的一項相依**
-description 寫了「沒有 iPhone 的朋友也可以用網頁版輸入同一組邀請碼加入」。網頁端確實可用，
-但 app 目前的分享文字（`InviteShareSheet.swift:37`）只帶 App Store 連結
-（`下載 Splity：https://apps.apple.com/app/id6760477233`），**沒有帶網頁版連結**。
-也就是說使用者分享出去，對方收到的是「去下載 iOS app」。
-如果 1.8.2 的「分享連結修正」正好就是要補上網頁連結，那這句文案剛好對得上；
-**如果不是，請主控決定要不要把這句從 description 拿掉**，否則就是承諾了一條使用者實際走不到的路。
+**✅ 原本待確認的那項相依，已結案（2026-09-20）**
+description 寫了「沒有 iPhone 的朋友也可以用網頁版輸入同一組邀請碼加入」。草稿當時 app 的分享文字
+只帶 App Store 連結，這句話是空頭支票。1.8.2 已經補上：`InviteShareSheet.shareMessage` 現在是
+「一鍵連結 → App Store → 邀請碼獨立一行」，網頁版連結（`SplityLinks.webJoin`）排在最前面。
+網頁端 `/join/{code}` 實測 200 且有完整預覽卡。**這句文案現在對得上，可以保留。**
+
+---
+
+## 8. App Store Connect 現況（2026-09-20 用 ASC API 實際讀出來的）
+
+寫入前先把「現在長什麼樣」記下來，之後要回頭對照或還原才有依據。
+
+| 欄位 | 目前的值 |
+|---|---|
+| 主語系 | `zh-Hant`（**只有這一個語系，沒有 en-US**） |
+| 名稱 | `Splity` |
+| 副標題 | **空的**（`None`） |
+| 關鍵字 | `  分帳,帳本,記帳,聚餐,旅遊,分錢,結算,費用,朋友,合租` ← 開頭確實有兩個半形空白 |
+| description | 長度 **32** 字元（就是那一句話） |
+| promotionalText | **空的** |
+| marketingUrl | **空的**（`None`） |
+| supportUrl | `https://github.com/Arlong6/Splity/issues` → 200 |
+| privacyPolicyUrl | `https://github.com/Arlong6/Splity/blob/main/privacy-policy.html` → 200 |
+| 主分類 | `SOCIAL_NETWORKING` |
+| 次分類 | `UTILITIES` |
+| 最新版本 | `1.8.1`，狀態 `READY_FOR_SALE` |
+| 1.8.2 版本 | **尚未建立** |
+
+也就是說草稿第 1.2、1.3、1.4 節推測的現況全部屬實：副標題空白、promotionalText 空白、
+關鍵字開頭有兩個多餘空白、description 只有一句話。
+
+### 寫入時要做的事（依序）
+
+1. 建立 `1.8.2` 版本（目前不存在）。
+2. 寫 zh-Hant 的 name / subtitle / keywords / promotionalText / description / whatsNew / marketingUrl。
+3. 新增 en-US 語系並寫入第 2 節的內容。
+4. 分類**不動**（理由見 5.4：不要在同一版同時改分類與全部文案，否則分不清成效來源）。
+5. supportUrl 與 privacyPolicyUrl **不動**（兩個都是 200，這一版沒有更好的選項）。
