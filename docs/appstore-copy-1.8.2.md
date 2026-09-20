@@ -450,3 +450,44 @@ description 寫了「沒有 iPhone 的朋友也可以用網頁版輸入同一組
 3. 新增 en-US 語系並寫入第 2 節的內容。
 4. 分類**不動**（理由見 5.4：不要在同一版同時改分類與全部文案，否則分不清成效來源）。
 5. supportUrl 與 privacyPolicyUrl **不動**（兩個都是 200，這一版沒有更好的選項）。
+
+---
+
+## 9. 已寫入 App Store Connect（2026-09-20）
+
+用 ASC API 寫入，所有欄位寫完後逐字回讀比對，**12 個欄位全部與本文件一致**。
+
+| | |
+|---|---|
+| 版本 | `1.8.2`，狀態 `PREPARE_FOR_SUBMISSION`，releaseType `AFTER_APPROVAL` |
+| 版本 id | `005e2f58-908b-4d54-bea6-f477f2ff897e` |
+| 可編輯 appInfo id | `42d7804c-02c3-424a-9e21-ace66d3e17be` |
+| 綁定的 build | **無**（build 18 尚未上傳） |
+
+寫入的欄位：
+
+- **zh-Hant 版本層**：description(638)、keywords(91)、promotionalText(83)、whatsNew(202)、marketingUrl
+- **zh-Hant appInfo 層**：name「Splity｜旅行分帳」(11)、subtitle「聚餐旅遊合租：沒廣告、沒訂閱、不限筆數」(19)
+- **en-US 版本層**（新建語系）：description(1701)、keywords(96)、promotionalText(165)、whatsNew(568)、marketingUrl、supportUrl
+- **en-US appInfo 層**：name「Splity: Trip Bill Splitter」(26)、subtitle「Group costs, no ads, no limits」(30)
+
+沒有動的：主分類（維持 `SOCIAL_NETWORKING`，理由見 5.4）、次分類、supportUrl(zh)、privacyPolicyUrl。
+
+### ⚠️ 還沒解決：en-US 沒有截圖
+
+| 語系 | 截圖組數 |
+|---|---|
+| zh-Hant | 2（`APP_IPHONE_65`、`APP_IPAD_PRO_3GEN_129`） |
+| en-US | **0** |
+
+第 5.2 節那個「新增語系會不會強制要英文截圖」的問題**仍然沒有答案**，而且現在也測不出來——
+要送審才知道，而送審需要先上傳 build 18。**上傳 build 之後第一件事就是試按送出，被擋的話代表
+要補英文截圖。** 在那之前不要假設沒事。
+
+### 兩個 API 上的坑（給下次的人）
+
+1. `GET /appInfoLocalizations/{id}` 用這把 API key 會回 **401 NOT_AUTHORIZED**，但透過關聯路徑
+   `GET /appInfos/{id}/appInfoLocalizations` 讀同一筆資料完全正常，`PATCH` 也正常。要讀單筆就走關聯路徑。
+2. 建立版本層的 `en-US` localization 時，ASC **會自動連帶建立 appInfo 層的 `en-US`，而且把主語系
+   （繁中）的 name 與 subtitle 直接複製過去**。不另外 PATCH 的話，英文商店頁的標題會是中文。
+   這次就踩到了，已修正。
