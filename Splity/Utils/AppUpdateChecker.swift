@@ -38,7 +38,7 @@ final class AppUpdateChecker {
 
             guard let result = response.results.first else { return }
 
-            let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
+            let currentVersion = AppVersion.short()
             let storeVer = result.version
 
             self.storeVersion = storeVer

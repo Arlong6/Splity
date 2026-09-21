@@ -262,6 +262,17 @@ struct GroupListView: View {
                     }
                 }
             }
+            // 版本資訊。使用者回報問題時說得出自己手上是哪一版；沒有這行只能靠猜。
+            // 帶 build 號是因為同一個版號可能有多包（被退件後重新上傳就會）。
+            Section {
+                Text(verbatim: AppVersion.display())
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier("appVersionFooter")
+            }
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
         }
         .listStyle(.insetGrouped)
         .overlay {

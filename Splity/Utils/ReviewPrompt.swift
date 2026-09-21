@@ -39,9 +39,7 @@ enum ReviewPrompt {
     /// 結算完成後隔多久才跳。一按完按鈕就跳像在攔路，先讓畫面更新完。
     static let delay: Duration = .seconds(2.5)
 
-    static var currentVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
-    }
+    static var currentVersion: String { AppVersion.short() }
 
     /// 已完成結算的「不同帳本」數。
     ///
