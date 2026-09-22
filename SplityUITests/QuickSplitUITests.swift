@@ -39,31 +39,16 @@ final class QuickSplitUITests: XCTestCase {
         entry.tap()
     }
 
-    private func hasFocus(_ element: XCUIElement) -> Bool {
-        (element.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
-    }
-
-    /// sheet 還在轉場、或 @FocusState 剛把焦點指去別處時，單次點擊常常拿不到鍵盤焦點。
+    /// 焦點處理已抽到 `XCUIElement.focusAndType`（見 UITestTyping.swift），
+    /// 這裡只留下這個檔案自己的定位邏輯。
     private func focusAndType(_ field: XCUIElement, _ text: String, name: String) {
-        XCTAssertTrue(field.waitForExistence(timeout: 5), "\(name) 不存在")
-        for _ in 0..<4 where !hasFocus(field) {
-            field.tap()
-            _ = field.waitForExistence(timeout: 1)
-        }
-        XCTAssertTrue(hasFocus(field), "\(name) 拿不到鍵盤焦點")
-        field.typeText(text)
+        field.focusAndType(text, name)
     }
 
     private func type(_ identifier: String, row index: Int, _ text: String) {
-        let field = app.textFields.matching(identifier: identifier).element(boundBy: index)
-        XCTAssertTrue(field.waitForExistence(timeout: 5), "\(identifier)[\(index)] 不存在")
         // 剛新增的列會由 @FocusState 主動把焦點搶回姓名欄，點一次不一定拿得到焦點
-        for _ in 0..<3 where !hasFocus(field) {
-            field.tap()
-            _ = field.waitForExistence(timeout: 1)
-        }
-        XCTAssertTrue(hasFocus(field), "\(identifier)[\(index)] 拿不到鍵盤焦點")
-        field.typeText(text)
+        let field = app.textFields.matching(identifier: identifier).element(boundBy: index)
+        field.focusAndType(text, "\(identifier)[\(index)]")
     }
 
     private func fillRow(_ index: Int, name: String, paid: String? = nil, share: String? = nil) {

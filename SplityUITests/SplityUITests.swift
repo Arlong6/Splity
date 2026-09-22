@@ -46,8 +46,7 @@ final class SplityUITests: XCTestCase {
     @discardableResult
     private func createAndEnterGroup(name: String) -> String {
         let field = openAddGroupSheet()
-        field.tap()
-        field.typeText(name)
+        field.focusAndType(name, "帳目名稱")
         app.buttons["建立"].tap()
 
         let cell = app.staticTexts[name]
@@ -60,12 +59,12 @@ final class SplityUITests: XCTestCase {
     private func addMember(name: String) {
         app.buttons["新增成員"].tap()
         let alert = app.alerts["新增成員"]
-        XCTAssertTrue(alert.waitForExistence(timeout: 10))
+        XCTAssertTrue(alert.waitForExistence(timeout: UITestTimeout.appear), "新增成員 alert 沒出現")
         let field = alert.textFields["名字"]
-        field.tap()
-        field.typeText(name)
+        field.focusAndType(name, "成員名字")
         alert.buttons["加入"].tap()
-        XCTAssertTrue(app.staticTexts[name].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts[name].waitForExistence(timeout: UITestTimeout.appear),
+                      "\(name) 沒有出現在成員列表")
     }
 
     // MARK: - Onboarding Tests
@@ -129,8 +128,7 @@ final class SplityUITests: XCTestCase {
         launchSkippingOnboarding()
 
         let field = openAddGroupSheet()
-        field.tap()
-        field.typeText("UI測試群組")
+        field.focusAndType("UI測試群組", "帳目名稱")
         app.buttons["建立"].tap()
 
         XCTAssertTrue(app.staticTexts["UI測試群組"].waitForExistence(timeout: 10))
@@ -157,8 +155,7 @@ final class SplityUITests: XCTestCase {
 
         let initialGroupCount = app.cells.count
         let field = openAddGroupSheet()
-        field.tap()
-        field.typeText("應取消的群組")
+        field.focusAndType("應取消的群組", "帳目名稱")
         app.buttons["取消"].tap()
         XCTAssertTrue(app.buttons["建立"].waitForNonExistence(timeout: 3))
 

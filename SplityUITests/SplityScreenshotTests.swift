@@ -39,9 +39,7 @@ final class SplityScreenshotTests: XCTestCase {
         // 新增帳目已從 Alert 改為 sheet(名稱輸入 + 幣別選擇 + 右上「建立」)
         app.buttons["新增帳目"].tap()
         let field = app.textFields.firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 10), "找不到帳目名稱輸入框(sheet 未出現?)")
-        field.tap()
-        field.typeText(name)
+        field.focusAndType(name, "帳目名稱（sheet 未出現？）")
         app.buttons["建立"].tap()
         XCTAssertTrue(app.staticTexts[name].waitForExistence(timeout: 10))
     }
@@ -49,21 +47,18 @@ final class SplityScreenshotTests: XCTestCase {
     private func addMember(_ name: String) {
         app.buttons["新增成員"].tap()
         let alert = app.alerts["新增成員"]
-        XCTAssertTrue(alert.waitForExistence(timeout: 10))
+        XCTAssertTrue(alert.waitForExistence(timeout: UITestTimeout.appear), "新增成員 alert 沒出現")
         let field = alert.textFields["名字"]
-        field.tap()
-        field.typeText(name)
+        field.focusAndType(name, "成員名字")
         alert.buttons["加入"].tap()
-        XCTAssertTrue(app.staticTexts[name].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts[name].waitForExistence(timeout: UITestTimeout.appear),
+                      "\(name) 沒有出現在成員列表")
     }
 
     private func addExpense(title: String, amount: String) {
         app.buttons["新增花費"].tap()
-        XCTAssertTrue(app.textFields["品項名稱"].waitForExistence(timeout: 10))
-        app.textFields["品項名稱"].tap()
-        app.textFields["品項名稱"].typeText(title)
-        app.textFields["金額"].tap()
-        app.textFields["金額"].typeText(amount)
+        app.textFields["品項名稱"].focusAndType(title, "品項名稱")
+        app.textFields["金額"].focusAndType(amount, "金額")
         let saveButton = app.buttons["儲存"]
         saveButton.tap()
         // Wait for the expense form to dismiss
