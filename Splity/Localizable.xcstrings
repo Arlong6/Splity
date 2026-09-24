@@ -313,6 +313,23 @@
         }
       }
     },
+    "Splity 問題回報 %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Splity problem report %@"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Splity 問題回報 %@"
+          }
+        }
+      }
+    },
     "• %@　先出 %@　應付 %@": {
       "localizations": {
         "en": {
@@ -663,6 +680,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "例如：週五晚餐"
+          }
+        }
+      }
+    },
+    "信件會自動帶上版本與裝置資訊，你只要描述問題就好。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The email already carries your version and device details — just describe the problem."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "信件會自動帶上版本與裝置資訊，你只要描述問題就好。"
           }
         }
       }
@@ -1524,6 +1558,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "品項名稱"
+          }
+        }
+      }
+    },
+    "回報問題": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Report a problem"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "回報問題"
           }
         }
       }
@@ -2821,6 +2872,23 @@
         }
       }
     },
+    "版本": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "版本"
+          }
+        }
+      }
+    },
     "用 Splity 分帳：": {
       "localizations": {
         "en": {
@@ -3093,6 +3161,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "結算方式"
+          }
+        }
+      }
+    },
+    "給 Splity 評分": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rate Splity"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "給 Splity 評分"
+          }
+        }
+      }
+    },
+    "網頁版": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Web version"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "網頁版"
           }
         }
       }
@@ -3438,6 +3540,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "請按「重新產生邀請碼」取得新的 6 碼"
+          }
+        }
+      }
+    },
+    "請改寄到 %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Please email %@ instead"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請改寄到 %@"
           }
         }
       }
@@ -4019,6 +4138,23 @@
         }
       }
     },
+    "開不了郵件 App": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't open Mail"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開不了郵件 App"
+          }
+        }
+      }
+    },
     "開始使用": {
       "comment": "A button label on the last onboarding page.",
       "localizations": {
@@ -4052,6 +4188,23 @@
         }
       }
     },
+    "關於 Splity": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About Splity"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "關於 Splity"
+          }
+        }
+      }
+    },
     "關閉": {
       "localizations": {
         "en": {
@@ -4064,6 +4217,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "關閉"
+          }
+        }
+      }
+    },
+    "隱私權政策": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Privacy Policy"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "隱私權政策"
           }
         }
       }

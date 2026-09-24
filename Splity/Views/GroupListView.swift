@@ -28,6 +28,7 @@ struct GroupListView: View {
     @State private var updateChecker = AppUpdateChecker.shared
     @State private var groupToDelete: Group?
     @State private var groupToSettle: Group?
+    @State private var showingAbout = false
     @State private var unreadGroupIds: Set<UUID> = []
 
     private var activeGroups: [Group] { groups.filter { !$0.isSettled } }
@@ -40,6 +41,9 @@ struct GroupListView: View {
                 .toolbar { toolbarContent }
                 .sheet(isPresented: $showingHistory) {
                     HistoryView()
+                }
+                .sheet(isPresented: $showingAbout) {
+                    AboutView()
                 }
                 .navigationDestination(for: Group.self) { group in
                     GroupDetailView(group: group)
@@ -262,14 +266,26 @@ struct GroupListView: View {
                     }
                 }
             }
-            // 版本資訊。使用者回報問題時說得出自己手上是哪一版；沒有這行只能靠猜。
-            // 帶 build 號是因為同一個版號可能有多包（被退件後重新上傳就會）。
+            // 版本與「關於」的入口。會低頭找版本號的人，正好就是要回報問題的人，
+            // 所以把門開在這一行上，不在工具列另外佔一個常駐圖示。
             Section {
-                Text(verbatim: AppVersion.display())
+                Button {
+                    showingAbout = true
+                } label: {
+                    VStack(spacing: 2) {
+                        HStack(spacing: 2) {
+                            Text("關於 Splity")
+                            Image(systemName: "chevron.right")
+                                .font(.caption2)
+                        }
+                        Text(verbatim: AppVersion.display())
+                    }
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity)
-                    .accessibilityIdentifier("appVersionFooter")
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("appVersionFooter")
             }
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)

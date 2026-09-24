@@ -7,6 +7,13 @@ enum SplityLinks {
 
     static let appStore = "https://apps.apple.com/app/id\(appStoreID)"
 
+    /// 網頁版首頁。與 `webJoin` 同一個網域，換網域時兩個要一起改。
+    static let webHome = "https://splity-web-ten.vercel.app"
+
+    /// 隱私權政策。與 App Store Connect 上填的是同一個網址，改了要兩邊同步，
+    /// 否則商店頁那個連結會跟 app 裡的不一致。
+    static let privacyPolicy = "https://github.com/Arlong6/Splity/blob/main/privacy-policy.html"
+
     /// 網頁版的加入頁，網址直接帶邀請碼，收件人點一下就進去、不用再手動輸入 6 碼。
     /// 沒有 iPhone 的人只有這條路可走，所以邀請訊息一定要附上。
     ///
