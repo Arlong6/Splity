@@ -58,6 +58,8 @@ struct GroupListView: View {
                 }
                 .onAppear {
                     refreshUnread()
+                    // 廣告流程（ATT → UMP → SDK）只在主畫面出現後才啟動；免廣告的人裡面會直接略過。
+                    AdsManager.shared.start(uid: sharingManager.currentUserId)
                     // 上次啟動時資料庫打不開、已改名備份：一定要讓使用者知道
                     if StoreRescue.consumeRescueFlag() { showingStoreRescueNotice = true }
                     // 有共享帳本才要通知權限（背景活動通知用）；授權框只會跳一次
@@ -291,6 +293,8 @@ struct GroupListView: View {
             .listRowSeparator(.hidden)
         }
         .listStyle(.insetGrouped)
+        // 橫幅只掛在列表本身，不掛在 NavigationStack 外層：push 進群組詳情後不該還看得到。
+        .safeAreaInset(edge: .bottom, spacing: 0) { AdBanner() }
         .overlay {
             if isJoining {
                 ProgressView("加入中…")

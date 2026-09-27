@@ -1,0 +1,21 @@
+{
+  "identifier" : "SPLITY_STOREKIT",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayPrice" : "70",
+      "familyShareable" : false,
+      "internalID" : "REMOVE_ADS",
+      "localizations" : [
+        { "description" : "永久移除橫幅與插頁廣告", "displayName" : "移除廣告", "locale" : "zh_TW" },
+        { "description" : "Removes banner and interstitial ads forever", "displayName" : "Remove Ads", "locale" : "en_US" }
+      ],
+      "productID" : "com.arlongchien.Splity.removeAds",
+      "referenceName" : "Remove Ads",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : { "_applicationInternalID" : "6760477233", "_developerTeamID" : "MS5DWUANB6", "_storefront" : "TWN" },
+  "subscriptionGroups" : [],
+  "version" : { "major" : 4, "minor" : 0 }
+}

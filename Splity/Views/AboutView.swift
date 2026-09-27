@@ -1,4 +1,5 @@
 import SwiftUI
+import StoreKit
 
 /// 「關於」：版本、回報問題、隱私權政策、網頁版、評分。
 ///
@@ -14,6 +15,11 @@ struct AboutView: View {
     /// 寄信失敗時顯示——模擬器或沒有設定郵件帳號的裝置開不了 mailto。
     @State private var mailFailed = false
 
+    @Environment(FirebaseSharingManager.self) private var sharingManager
+    @State private var purchasing = false
+    @State private var purchaseMessage: String?
+    @State private var copiedID = false
+
     var body: some View {
         NavigationStack {
             List {
@@ -23,6 +29,8 @@ struct AboutView: View {
                             .accessibilityIdentifier("aboutVersionValue")
                     }
                 }
+
+                removeAdsSection
 
                 Section {
                     Button {
@@ -59,7 +67,88 @@ struct AboutView: View {
             } message: {
                 Text("請改寄到 \(SupportMail.address)")
             }
+            .alert("移除廣告", isPresented: Binding(
+                get: { purchaseMessage != nil },
+                set: { if !$0 { purchaseMessage = nil } }
+            )) {
+                Button("好") { purchaseMessage = nil }
+            } message: {
+                Text(purchaseMessage ?? "")
+            }
         }
+    }
+
+    // MARK: - 移除廣告
+
+    /// 買斷去廣告 + 還原購買。footer 順便露出匿名 uid：開發者要把朋友加進 Firestore 的免廣告名單，
+    /// 需要對方把這串 ID 傳過來；一般使用者看到也無妨，它不含任何個人資訊。
+    private var removeAdsSection: some View {
+        let adFree = AdFreeStatus.shared
+        return Section {
+            if adFree.isPurchased {
+                Label("已移除廣告", systemImage: "checkmark.seal.fill")
+                    .foregroundStyle(.green)
+            } else {
+                Button {
+                    Task { await purchaseRemoveAds() }
+                } label: {
+                    HStack {
+                        row("移除廣告", systemImage: "rectangle.slash")
+                        Spacer()
+                        if purchasing {
+                            ProgressView()
+                        } else if let price = adFree.product?.displayPrice {
+                            Text(price).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .disabled(purchasing || adFree.product == nil)
+                .accessibilityIdentifier("aboutRemoveAds")
+            }
+            Button {
+                Task { await restorePurchases() }
+            } label: {
+                row("還原購買", systemImage: "arrow.clockwise")
+            }
+            .disabled(purchasing)
+        } footer: {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("一次購買，永久移除橫幅與插頁廣告。")
+                if let uid = sharingManager.currentUserId {
+                    Button {
+                        UIPasteboard.general.string = uid
+                        copiedID = true
+                    } label: {
+                        (copiedID ? Text("已複製") : Text("你的 ID（點一下複製）")) + Text(verbatim: " \(uid)")
+                    }
+                    .buttonStyle(.plain)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .task { await adFree.loadProductIfNeeded() }
+    }
+
+    private func purchaseRemoveAds() async {
+        purchasing = true
+        defer { purchasing = false }
+        do {
+            switch try await AdFreeStatus.shared.purchase() {
+            case .purchased: purchaseMessage = String(localized: "已移除廣告")
+            case .pending: purchaseMessage = String(localized: "購買待核准，完成後會自動生效。")
+            case .cancelled: break
+            }
+        } catch {
+            purchaseMessage = String(localized: "購買失敗") + "\n" + error.localizedDescription
+        }
+    }
+
+    private func restorePurchases() async {
+        purchasing = true
+        defer { purchasing = false }
+        let restored = await AdFreeStatus.shared.restore()
+        purchaseMessage = String(localized: restored ? "已還原購買" : "沒有找到可還原的購買")
     }
 
     private func row(_ title: LocalizedStringKey, systemImage: String) -> some View {
@@ -88,4 +177,5 @@ struct AboutView: View {
 
 #Preview {
     AboutView()
+        .environment(FirebaseSharingManager.shared)
 }

@@ -72,7 +72,10 @@ struct SettlementView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button("完成") { dismiss() }
+                Button("完成") {
+                    // 播完插頁（或不符合條件直接略過）再關閉畫面
+                    AdsManager.shared.showInterstitialIfAllowed { dismiss() }
+                }
             }
             if !settlements.isEmpty {
                 ToolbarItem(placement: .topBarLeading) {
@@ -83,6 +86,7 @@ struct SettlementView: View {
             }
         }
         .task { await refresh() }
+        .onAppear { InterstitialPolicy.recordSettlementViewed() }
         .alert("同步失敗", isPresented: Binding(
             get: { syncError != nil },
             set: { if !$0 { syncError = nil } }

@@ -484,6 +484,22 @@
         }
       }
     },
+    "一次購買，永久移除橫幅與插頁廣告。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One-time purchase. Removes banner and interstitial ads forever."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一次購買，永久移除橫幅與插頁廣告。"
+          }
+        }
+      }
+    },
     "一起來分帳！": {
       "localizations": {
         "en": {
@@ -612,6 +628,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "以新的身份加入"
+          }
+        }
+      }
+    },
+    "你的 ID（點一下複製）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your ID (tap to copy)"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的 ID（點一下複製）"
           }
         }
       }
@@ -1812,6 +1844,22 @@
         }
       }
     },
+    "已移除廣告": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ads removed"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已移除廣告"
+          }
+        }
+      }
+    },
     "已結清": {
       "localizations": {
         "en": {
@@ -1842,6 +1890,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "已複製"
+          }
+        }
+      }
+    },
+    "已還原購買": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Purchases restored"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已還原購買"
           }
         }
       }
@@ -1991,6 +2055,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "平均每人"
+          }
+        }
+      }
+    },
+    "廣告": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ad"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "廣告"
           }
         }
       }
@@ -2759,6 +2839,22 @@
         }
       }
     },
+    "沒有找到可還原的購買": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No purchase found to restore"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沒有找到可還原的購買"
+          }
+        }
+      }
+    },
     "沒有歷史紀錄": {
       "localizations": {
         "en": {
@@ -2872,6 +2968,22 @@
         }
       }
     },
+    "無法驗證這筆購買。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This purchase could not be verified."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法驗證這筆購買。"
+          }
+        }
+      }
+    },
     "版本": {
       "extractionState": "manual",
       "localizations": {
@@ -2937,6 +3049,22 @@
         }
       }
     },
+    "目前無法取得商品資訊，請稍後再試。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Product information is unavailable right now. Please try again later."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目前無法取得商品資訊，請稍後再試。"
+          }
+        }
+      }
+    },
     "確定刪除？": {
       "comment": "A confirmation alert title.",
       "localizations": {
@@ -2982,6 +3110,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "移除了成員"
+          }
+        }
+      }
+    },
+    "移除廣告": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove Ads"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "移除廣告"
           }
         }
       }
@@ -3643,6 +3787,38 @@
         }
       }
     },
+    "購買失敗": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Purchase failed"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購買失敗"
+          }
+        }
+      }
+    },
+    "購買待核准，完成後會自動生效。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Purchase pending approval. Ads will be removed once it completes."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購買待核准，完成後會自動生效。"
+          }
+        }
+      }
+    },
     "跳過": {
       "comment": "A button label used in the onboarding view to skip.",
       "localizations": {
@@ -4003,6 +4179,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "還原失敗"
+          }
+        }
+      }
+    },
+    "還原購買": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore Purchases"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "還原購買"
           }
         }
       }
