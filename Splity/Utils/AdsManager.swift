@@ -128,22 +128,43 @@ extension AdsManager: FullScreenContentDelegate {
 /// 尺寸刻意用舊的 `currentOrientationAnchoredAdaptiveBanner`（約 60pt），不用 SDK 13 主推的
 /// `largeAnchoredAdaptiveBanner`：後者在 iPhone 上算出來是 126pt，佔掉 15% 螢幕，
 /// 對一個分帳列表來說太吵。它目前只是 deprecated 還能用；哪天被移除再改成 inline adaptive + maxHeight。
+///
+/// 橫幅上方附一條「移除廣告」：原本入口只在列表最底的「關於」，連 App Review 都找不到。
 struct AdBanner: View {
+    var onRemoveAds: () -> Void
+
     private static func bannerSize(width: CGFloat) -> AdSize {
         currentOrientationAnchoredAdaptiveBanner(width: width)
     }
 
     var body: some View {
         if !AdFreeStatus.shared.isAdFree, AdsManager.shared.isStarted {
-            GeometryReader { geometry in
-                let size = Self.bannerSize(width: geometry.size.width)
-                BannerViewContainer(adSize: size)
-                    .frame(width: size.size.width, height: size.size.height)
-                    .frame(maxWidth: .infinity)
+            VStack(spacing: 0) {
+                HStack {
+                    Spacer()
+                    Button(action: onRemoveAds) {
+                        HStack(spacing: 2) {
+                            Text("移除廣告")
+                            Image(systemName: "chevron.right")
+                                .font(.caption2)
+                        }
+                        .font(.caption)
+                    }
+                    .accessibilityIdentifier("bannerRemoveAds")
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 4)
+
+                GeometryReader { geometry in
+                    let size = Self.bannerSize(width: geometry.size.width)
+                    BannerViewContainer(adSize: size)
+                        .frame(width: size.size.width, height: size.size.height)
+                        .frame(maxWidth: .infinity)
+                }
+                .frame(height: Self.bannerSize(width: UIScreen.main.bounds.width).size.height)
+                .accessibilityLabel(Text("廣告"))
             }
-            .frame(height: Self.bannerSize(width: UIScreen.main.bounds.width).size.height)
             .background(Color(.systemGroupedBackground))
-            .accessibilityLabel(Text("廣告"))
         }
     }
 }

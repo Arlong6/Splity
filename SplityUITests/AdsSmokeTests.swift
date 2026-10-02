@@ -52,13 +52,10 @@ final class AdsSmokeTests: XCTestCase {
         XCTAssertTrue(testAd.waitForExistence(timeout: 60), "橫幅沒有載入測試廣告")
         screenshot("splity_02_banner")
 
-        // 3. 關於頁：移除廣告 / 還原購買
-        // 列表內容比螢幕長，「關於」那列一開始有一半在橫幅底下；先捲到底再點，不然點到的是廣告。
-        let footer = app.descendants(matching: .any)["appVersionFooter"]
-        XCTAssertTrue(footer.waitForExistence(timeout: 10))
-        app.swipeUp()
-        sleep(1)
-        footer.tap()
+        // 3. 橫幅上方的「移除廣告」直接打開關於頁（App Review 曾找不到列表最底的入口）
+        let bannerLink = app.buttons["bannerRemoveAds"]
+        XCTAssertTrue(bannerLink.waitForExistence(timeout: 10), "橫幅上方沒有移除廣告入口")
+        bannerLink.tap()
         let restore = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS '還原購買'")).firstMatch
         XCTAssertTrue(restore.waitForExistence(timeout: 10), "關於頁沒有還原購買")
         XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS '移除廣告'")).firstMatch.exists)

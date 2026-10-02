@@ -632,6 +632,22 @@
         }
       }
     },
+    "你在免廣告名單中": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You're on the ad-free list"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你在免廣告名單中"
+          }
+        }
+      }
+    },
     "你的 ID（點一下複製）": {
       "localizations": {
         "en": {

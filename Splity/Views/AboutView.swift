@@ -88,6 +88,11 @@ struct AboutView: View {
             if adFree.isPurchased {
                 Label("已移除廣告", systemImage: "checkmark.seal.fill")
                     .foregroundStyle(.green)
+            } else if adFree.isRemoteAdFree {
+                // 名單上的朋友本來就沒有廣告，別讓他們看到購買按鈕而誤買。
+                // 名單綁匿名 uid、重裝會失效，所以「還原購買」照樣留著。
+                Label("你在免廣告名單中", systemImage: "checkmark.seal.fill")
+                    .foregroundStyle(.green)
             } else {
                 Button {
                     Task { await purchaseRemoveAds() }

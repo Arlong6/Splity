@@ -294,7 +294,7 @@ struct GroupListView: View {
         }
         .listStyle(.insetGrouped)
         // 橫幅只掛在列表本身，不掛在 NavigationStack 外層：push 進群組詳情後不該還看得到。
-        .safeAreaInset(edge: .bottom, spacing: 0) { AdBanner() }
+        .safeAreaInset(edge: .bottom, spacing: 0) { AdBanner { showingAbout = true } }
         .overlay {
             if isJoining {
                 ProgressView("加入中…")

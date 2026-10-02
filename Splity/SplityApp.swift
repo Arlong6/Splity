@@ -133,10 +133,18 @@ struct SplityApp: App {
             SplashView()
                 .environment(\.locale, Locale(identifier: appLanguage))
                 .environment(sharingManager)
-                .task { try? await sharingManager.signInAnonymously() }
+                .task {
+                    try? await sharingManager.signInAnonymously()
+                    // 首次安裝時列表頁出現得比匿名登入早，AdsManager 拿到的 uid 是 nil；登入完成後補查一次名單。
+                    await AdFreeStatus.shared.refreshRemote(uid: sharingManager.currentUserId)
+                }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .background {
                         ActivityNotifier.scheduleNext()
+                    }
+                    // 開發者剛把朋友加進名單時，對方回到 App 就生效，不用整個關掉重開。
+                    if phase == .active, let uid = sharingManager.currentUserId {
+                        Task { await AdFreeStatus.shared.refreshRemote(uid: uid) }
                     }
                 }
         }
