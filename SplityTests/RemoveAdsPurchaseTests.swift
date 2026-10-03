@@ -19,6 +19,7 @@ struct RemoveAdsPurchaseTests {
         session = try SKTestSession(contentsOf: config)
         session.disableDialogs = true
         session.askToBuyEnabled = false
+        // 不要碰 failTransactionsEnabled：實測只要設過（連設成 false 也算），之後的購買都回 .unknown。
         session.clearTransactions()
     }
 
@@ -46,6 +47,14 @@ struct RemoveAdsPurchaseTests {
         #expect(outcome == .purchased)
         #expect(status.isPurchased == true)
         #expect(defaults.bool(forKey: "AdFree_purchased") == true)
+    }
+
+    @Test("畫面用的購買：成功回感謝訊息並生效")
+    func purchaseWithMessage() async {
+        let (status, _, name) = freshStatus()
+        defer { UserDefaults().removePersistentDomain(forName: name) }
+        #expect(await status.purchaseWithMessage() == localized("已移除廣告，謝謝支持！"))
+        #expect(status.isPurchased == true)
     }
 
     @Test("重裝（快取清空）後：啟動時的權益查詢與還原購買都能找回")

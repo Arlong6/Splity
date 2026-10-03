@@ -113,6 +113,20 @@ final class AdFreeStatus {
         }
     }
 
+    /// 給畫面用的購買：回傳要顯示給使用者的訊息，使用者自己取消則回傳 nil（不打擾）。
+    /// 橫幅入口與關於頁共用，兩邊的提示保證一致。
+    func purchaseWithMessage() async -> String? {
+        do {
+            switch try await purchase() {
+            case .purchased: return localized("已移除廣告，謝謝支持！")
+            case .pending: return localized("購買待核准，完成後會自動生效。")
+            case .cancelled: return nil
+            }
+        } catch {
+            return localized("購買失敗") + "\n" + error.localizedDescription
+        }
+    }
+
     /// 回傳還原後是否已擁有「移除廣告」。
     func restore() async -> Bool {
         try? await AppStore.sync()
@@ -124,8 +138,8 @@ final class AdFreeStatus {
         case productUnavailable, unverified
         var errorDescription: String? {
             switch self {
-            case .productUnavailable: return String(localized: "目前無法取得商品資訊，請稍後再試。")
-            case .unverified: return String(localized: "無法驗證這筆購買。")
+            case .productUnavailable: return localized("目前無法取得商品資訊，請稍後再試。")
+            case .unverified: return localized("無法驗證這筆購買。")
             }
         }
     }

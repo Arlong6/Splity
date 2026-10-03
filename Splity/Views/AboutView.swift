@@ -138,22 +138,14 @@ struct AboutView: View {
     private func purchaseRemoveAds() async {
         purchasing = true
         defer { purchasing = false }
-        do {
-            switch try await AdFreeStatus.shared.purchase() {
-            case .purchased: purchaseMessage = String(localized: "已移除廣告")
-            case .pending: purchaseMessage = String(localized: "購買待核准，完成後會自動生效。")
-            case .cancelled: break
-            }
-        } catch {
-            purchaseMessage = String(localized: "購買失敗") + "\n" + error.localizedDescription
-        }
+        purchaseMessage = await AdFreeStatus.shared.purchaseWithMessage()
     }
 
     private func restorePurchases() async {
         purchasing = true
         defer { purchasing = false }
         let restored = await AdFreeStatus.shared.restore()
-        purchaseMessage = String(localized: restored ? "已還原購買" : "沒有找到可還原的購買")
+        purchaseMessage = restored ? localized("已還原購買") : localized("沒有找到可還原的購買")
     }
 
     private func row(_ title: LocalizedStringKey, systemImage: String) -> some View {

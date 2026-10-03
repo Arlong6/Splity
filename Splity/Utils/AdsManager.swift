@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import StoreKit
 import AppTrackingTransparency
 import GoogleMobileAds
 import UserMessagingPlatform
@@ -129,8 +130,10 @@ extension AdsManager: FullScreenContentDelegate {
 /// `largeAnchoredAdaptiveBanner`：後者在 iPhone 上算出來是 126pt，佔掉 15% 螢幕，
 /// 對一個分帳列表來說太吵。它目前只是 deprecated 還能用；哪天被移除再改成 inline adaptive + maxHeight。
 ///
-/// 橫幅上方附一條「移除廣告」：原本入口只在列表最底的「關於」，連 App Review 都找不到。
+/// 橫幅上方附一條「移除廣告 價格」，點了直接叫出 Apple 付款單（誤觸也還要再確認一次，不會誤扣）。
+/// 購買結果的提示由呼叫端顯示：買成功的瞬間橫幅就消失了，掛在這裡的 alert 會跟著不見。
 struct AdBanner: View {
+    var isPurchasing: Bool
     var onRemoveAds: () -> Void
 
     private static func bannerSize(width: CGFloat) -> AdSize {
@@ -143,13 +146,18 @@ struct AdBanner: View {
                 HStack {
                     Spacer()
                     Button(action: onRemoveAds) {
-                        HStack(spacing: 2) {
+                        HStack(spacing: 4) {
+                            if isPurchasing {
+                                ProgressView().controlSize(.mini)
+                            }
                             Text("移除廣告")
-                            Image(systemName: "chevron.right")
-                                .font(.caption2)
+                            if let price = AdFreeStatus.shared.product?.displayPrice {
+                                Text(verbatim: price)
+                            }
                         }
                         .font(.caption)
                     }
+                    .disabled(isPurchasing)
                     .accessibilityIdentifier("bannerRemoveAds")
                 }
                 .padding(.horizontal)

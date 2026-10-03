@@ -1876,6 +1876,22 @@
         }
       }
     },
+    "已移除廣告，謝謝支持！": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ads removed. Thanks for your support!"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已移除廣告，謝謝支持！"
+          }
+        }
+      }
+    },
     "已結清": {
       "localizations": {
         "en": {

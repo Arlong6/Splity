@@ -52,10 +52,21 @@ final class AdsSmokeTests: XCTestCase {
         XCTAssertTrue(testAd.waitForExistence(timeout: 60), "橫幅沒有載入測試廣告")
         screenshot("splity_02_banner")
 
-        // 3. 橫幅上方的「移除廣告」直接打開關於頁（App Review 曾找不到列表最底的入口）
+        // 3. 橫幅上方的「移除廣告」帶價格。點下去會叫出真的 Apple 付款單（模擬器沒有 sandbox 帳號、畫面不可控），
+        //    所以這裡只驗證入口與價格；購買流程由 RemoveAdsPurchaseTests 用 StoreKitTest 驗證。
         let bannerLink = app.buttons["bannerRemoveAds"]
         XCTAssertTrue(bannerLink.waitForExistence(timeout: 10), "橫幅上方沒有移除廣告入口")
-        bannerLink.tap()
+        let priced = NSPredicate(format: "label MATCHES %@", ".*移除廣告.*[0-9].*")
+        expectation(for: priced, evaluatedWith: bannerLink)
+        waitForExpectations(timeout: 15)
+
+        // 4. 關於頁：移除廣告 / 還原購買
+        // 列表內容比螢幕長，「關於」那列一開始有一半在橫幅底下；先捲到底再點，不然點到的是廣告。
+        let footer = app.descendants(matching: .any)["appVersionFooter"]
+        XCTAssertTrue(footer.waitForExistence(timeout: 10))
+        app.swipeUp()
+        sleep(1)
+        footer.tap()
         let restore = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS '還原購買'")).firstMatch
         XCTAssertTrue(restore.waitForExistence(timeout: 10), "關於頁沒有還原購買")
         XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS '移除廣告'")).firstMatch.exists)

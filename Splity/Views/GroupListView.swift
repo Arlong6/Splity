@@ -29,6 +29,8 @@ struct GroupListView: View {
     @State private var groupToDelete: Group?
     @State private var groupToSettle: Group?
     @State private var showingAbout = false
+    @State private var purchasingRemoveAds = false
+    @State private var removeAdsMessage: String?
     @State private var unreadGroupIds: Set<UUID> = []
 
     private var activeGroups: [Group] { groups.filter { !$0.isSettled } }
@@ -294,7 +296,23 @@ struct GroupListView: View {
         }
         .listStyle(.insetGrouped)
         // 橫幅只掛在列表本身，不掛在 NavigationStack 外層：push 進群組詳情後不該還看得到。
-        .safeAreaInset(edge: .bottom, spacing: 0) { AdBanner { showingAbout = true } }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            AdBanner(isPurchasing: purchasingRemoveAds) {
+                Task {
+                    purchasingRemoveAds = true
+                    defer { purchasingRemoveAds = false }
+                    removeAdsMessage = await AdFreeStatus.shared.purchaseWithMessage()
+                }
+            }
+        }
+        .alert("移除廣告", isPresented: Binding(
+            get: { removeAdsMessage != nil },
+            set: { if !$0 { removeAdsMessage = nil } }
+        )) {
+            Button("好") { removeAdsMessage = nil }
+        } message: {
+            Text(removeAdsMessage ?? "")
+        }
         .overlay {
             if isJoining {
                 ProgressView("加入中…")
