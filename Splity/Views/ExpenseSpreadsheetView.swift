@@ -90,7 +90,14 @@ struct ExpenseSpreadsheetView: View {
     @State private var myCol: Int?
 
     private struct SheetRow: Identifiable {
-        let id: UUID
+        /// 同一筆花費在「大家要付的」與「有人先墊」各出現一列。兩段在同一個 LazyVStack 裡，
+        /// id 只用花費 id 會撞號，第二段被當成已畫過而留白，要捲動才補上——所以 id 要帶段落。
+        enum Section { case owed, paid }
+        struct ID: Hashable {
+            let section: Section
+            let expense: UUID
+        }
+        let id: ID
         let title: String
         let amounts: [String]
         let total: String
@@ -168,9 +175,9 @@ struct ExpenseSpreadsheetView: View {
             }
             // 總價與付款人欄用 splits 加總(而非 totalAmount):均分進位時兩者會差
             // 幾塊錢(如 100/3→34×3=102),CSV 與應付/應收列都以 splits 為準,對齊之
-            ev.append(SheetRow(id: exp.id, title: exp.title, amounts: amounts, total: f(rowSum)))
+            ev.append(SheetRow(id: .init(section: .owed, expense: exp.id), title: exp.title, amounts: amounts, total: f(rowSum)))
             pu.append(SheetRow(
-                id: exp.id, title: exp.title,
+                id: .init(section: .paid, expense: exp.id), title: exp.title,
                 amounts: ms.map { m in exp.paidBy?.id == m.id ? f(-rowSum) : f(0) },
                 total: f(-rowSum)
             ))

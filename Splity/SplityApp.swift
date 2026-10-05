@@ -113,7 +113,10 @@ struct SplityApp: App {
             context.insert(m)
             group.members.append(m)
         }
-        for i in 1...500 {
+        // -SeedSheetCount N：小帳本（整張表在第一屏內）用來重現畫面問題；預設 500 為效能量測
+        let requested = UserDefaults.standard.integer(forKey: "SeedSheetCount")
+        let count = requested > 0 ? requested : 500
+        for i in 1...count {
             let total = Decimal(100 + (i % 50) * 10)
             let expense = Expense(title: "花費\(i)", totalAmount: total, paidBy: members[i % 8])
             context.insert(expense)
