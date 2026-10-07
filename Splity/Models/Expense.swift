@@ -49,3 +49,11 @@ final class Expense {
         self.createdAt = Date()
     }
 }
+
+extension Sequence where Element == Expense {
+    /// 依輸入順序（最早在前）。createdAt 會跨裝置同步，所以共享帳本各台順序一致；
+    /// 同一刻建立的（例如批次匯入）再用 id 定序，避免每次重算順序跳動。
+    func inEntryOrder() -> [Expense] {
+        sorted { ($0.createdAt, $0.id.uuidString) < ($1.createdAt, $1.id.uuidString) }
+    }
+}

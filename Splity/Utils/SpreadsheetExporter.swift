@@ -4,7 +4,7 @@ enum SpreadsheetExporter {
 
     static func generateCSV(group: Group) -> String {
         let members = group.members.sorted { $0.name < $1.name }
-        let expenses = group.expenses.filter { !$0.archived }.sorted { $0.totalAmount > $1.totalAmount }
+        let expenses = group.expenses.filter { !$0.archived }.inEntryOrder()
         let baseCode = group.baseCurrencyCode
 
         var lines: [String] = []

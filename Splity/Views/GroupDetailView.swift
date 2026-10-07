@@ -38,7 +38,8 @@ struct GroupDetailView: View {
     }
 
     var sortedExpenses: [Expense] {
-        group.expenses.filter { !$0.archived }.sorted { $0.totalAmount > $1.totalAmount }
+        // 最新輸入的在最上面：剛記的帳馬上看得到
+        Array(group.expenses.filter { !$0.archived }.inEntryOrder().reversed())
     }
 
     var totalExpenseAmount: Decimal {

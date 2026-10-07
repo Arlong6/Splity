@@ -141,7 +141,7 @@ struct ExpenseSpreadsheetView: View {
     }
 
     private var sortedExpenses: [Expense] {
-        group.expenses.filter { !$0.archived }.sorted { $0.totalAmount > $1.totalAmount }
+        group.expenses.filter { !$0.archived }.inEntryOrder()
     }
 
     /// 單一趟建好整張表的顯示資料(SwiftData 關聯只走這一次)。

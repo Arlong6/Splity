@@ -20,6 +20,7 @@ final class SpreadsheetSmallSheetTests: XCTestCase {
         groupRow.tap()
         let sheetButton = app.buttons["表格"].firstMatch
         XCTAssertTrue(sheetButton.waitForExistence(timeout: 10))
+        attach("00-group-detail")
         sheetButton.tap()
 
         // 不捲動：最後一列「應付/應收」與「有人先墊」區塊的列都應該已經在畫面上
