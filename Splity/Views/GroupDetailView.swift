@@ -32,18 +32,31 @@ struct GroupDetailView: View {
     @State private var showingDefaultCurrencyPicker = false
     @State private var defaultCurrencySelection = ""
     @State private var defaultCurrencyInitial = ""
+    // 花費列表的付款人篩選：存「取消勾選」的人，空集合 = 全選；新加入的成員自動顯示。
+    // 只影響列表顯示，餘額／結算／表格一律用全部花費。離開頁面即重置。
+    @State private var hiddenPayerIDs: Set<UUID> = []
 
     var sortedMembers: [Member] {
         group.members.sorted { $0.name < $1.name }
     }
 
+    private var isFilteringPayers: Bool {
+        // 被移除的成員可能還留在集合裡，只算目前成員
+        group.members.contains { hiddenPayerIDs.contains($0.id) }
+    }
+
     var sortedExpenses: [Expense] {
         // 最新輸入的在最上面：剛記的帳馬上看得到
-        Array(group.expenses.filter { !$0.archived }.inEntryOrder().reversed())
+        Array(group.expenses.filter { !$0.archived && isPayerShown($0) }.inEntryOrder().reversed())
+    }
+
+    private func isPayerShown(_ expense: Expense) -> Bool {
+        guard let payer = expense.paidBy else { return !isFilteringPayers }
+        return !hiddenPayerIDs.contains(payer.id)
     }
 
     var totalExpenseAmount: Decimal {
-        group.expenses.filter { !$0.archived }.reduce(0) { $0 + $1.totalAmount }
+        sortedExpenses.reduce(0) { $0 + $1.totalAmount }
     }
 
     var netBalances: [Member: Decimal] {
@@ -140,8 +153,11 @@ struct GroupDetailView: View {
     @ViewBuilder
     private var expensesSection: some View {
         Section {
-            if sortedExpenses.isEmpty {
+            if activeExpensesEmpty {
                 Text("還沒有花費紀錄")
+                    .foregroundStyle(.secondary)
+            } else if sortedExpenses.isEmpty {
+                Text("沒有符合的花費")
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(sortedExpenses) { expense in
@@ -151,6 +167,9 @@ struct GroupDetailView: View {
         } header: {
             HStack {
                 Text("花費紀錄")
+                if !activeExpensesEmpty {
+                    payerFilterMenu
+                }
                 Spacer()
                 if totalExpenseAmount > 0 {
                     Text(totalExpenseAmount, format: .currency(code: currencyCode))
@@ -159,6 +178,42 @@ struct GroupDetailView: View {
                 }
             }
         }
+    }
+
+    private var payerFilterMenu: some View {
+        let shownCount = group.members.filter { !hiddenPayerIDs.contains($0.id) }.count
+        return Menu {
+            Button {
+                hiddenPayerIDs = []
+            } label: {
+                if isFilteringPayers { Text("全部") } else { Label("全部", systemImage: "checkmark") }
+            }
+            Divider()
+            ForEach(sortedMembers) { member in
+                Toggle(member.name, isOn: Binding(
+                    get: { !hiddenPayerIDs.contains(member.id) },
+                    set: { shown in
+                        if shown { hiddenPayerIDs.remove(member.id) } else { hiddenPayerIDs.insert(member.id) }
+                    }
+                ))
+            }
+        } label: {
+            HStack(spacing: 2) {
+                if isFilteringPayers {
+                    Text("付款人：\(shownCount) 人")
+                } else {
+                    Text("付款人：全部")
+                }
+                Image(systemName: "chevron.down")
+                    .imageScale(.small)
+            }
+            .font(.caption)
+            .foregroundStyle(isFilteringPayers ? Color.accentColor : .secondary)
+        }
+        // 連續勾選多人時選單不要每點一次就關掉
+        .menuActionDismissBehavior(.disabled)
+        .textCase(nil)
+        .accessibilityIdentifier("payerFilter")
     }
 
     private func expenseRow(_ expense: Expense) -> some View {

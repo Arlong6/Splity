@@ -582,6 +582,38 @@
         }
       }
     },
+    "付款人：%lld 人": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paid by: %lld"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "付款人：%lld 人"
+          }
+        }
+      }
+    },
+    "付款人：全部": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paid by: All"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "付款人：全部"
+          }
+        }
+      }
+    },
     "以 exchangerate-api.com 當下牌價換算，套用後鎖定。": {
       "localizations": {
         "en": {
@@ -905,6 +937,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "全選"
+          }
+        }
+      }
+    },
+    "全部": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全部"
           }
         }
       }
@@ -2899,6 +2947,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "沒有歷史紀錄"
+          }
+        }
+      }
+    },
+    "沒有符合的花費": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Matching Expenses"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沒有符合的花費"
           }
         }
       }
