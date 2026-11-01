@@ -2837,6 +2837,22 @@
         }
       }
     },
+    "正在取得匯率…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Getting exchange rate…"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在取得匯率…"
+          }
+        }
+      }
+    },
     "歷史紀錄": {
       "localizations": {
         "en": {
@@ -3044,6 +3060,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "無法取得匯率"
+          }
+        }
+      }
+    },
+    "無法取得匯率，點此重試": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't get exchange rate. Tap to retry"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法取得匯率，點此重試"
           }
         }
       }
@@ -4225,6 +4257,118 @@
           "stringUnit": {
             "state": "translated",
             "value": "邀請碼：%@"
+          }
+        }
+      }
+    },
+    "還不能儲存：分帳合計比總額多 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't save yet: split total is %@ more than the amount"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "還不能儲存：分帳合計比總額多 %@"
+          }
+        }
+      }
+    },
+    "還不能儲存：分帳合計比總額少 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't save yet: split total is %@ less than the amount"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "還不能儲存：分帳合計比總額少 %@"
+          }
+        }
+      }
+    },
+    "還不能儲存：無法取得匯率，請點上方「重試」或改用結算幣別": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't save yet: no exchange rate. Tap \"retry\" above or use the settlement currency"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "還不能儲存：無法取得匯率，請點上方「重試」或改用結算幣別"
+          }
+        }
+      }
+    },
+    "還不能儲存：請至少選一位分帳成員": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't save yet: select at least one person to split with"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "還不能儲存：請至少選一位分帳成員"
+          }
+        }
+      }
+    },
+    "還不能儲存：請輸入品項名稱": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't save yet: enter an item name"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "還不能儲存：請輸入品項名稱"
+          }
+        }
+      }
+    },
+    "還不能儲存：請輸入大於 0 的金額": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't save yet: enter an amount greater than 0"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "還不能儲存：請輸入大於 0 的金額"
+          }
+        }
+      }
+    },
+    "還不能儲存：請選擇誰先付": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't save yet: choose who paid"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "還不能儲存：請選擇誰先付"
           }
         }
       }

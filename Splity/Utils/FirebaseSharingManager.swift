@@ -26,6 +26,7 @@ final class FirebaseSharingManager {
         do {
             try await work()
         } catch {
+            DiagnosticLog.shared.record("背景上傳失敗：\(DiagnosticLog.describe(error))")
             pendingSyncError = error.localizedDescription
         }
     }
@@ -79,8 +80,13 @@ final class FirebaseSharingManager {
             currentUserId = user.uid
             return
         }
-        let result = try await Auth.auth().signInAnonymously()
-        currentUserId = result.user.uid
+        do {
+            let result = try await Auth.auth().signInAnonymously()
+            currentUserId = result.user.uid
+        } catch {
+            DiagnosticLog.shared.record("匿名登入失敗：\(DiagnosticLog.describe(error))")
+            throw error
+        }
     }
 
     // MARK: - Invite Code
@@ -492,19 +498,27 @@ final class FirebaseSharingManager {
 
         // Skip local echoes — our own optimistic writes would re-enter merge and
         // fight SwiftUI list animations, causing UICollectionView batch-update crashes.
-        let groupReg = groupRef.addSnapshotListener(includeMetadataChanges: false) { snapshot, _ in
+        let groupReg = groupRef.addSnapshotListener(includeMetadataChanges: false) { snapshot, error in
+            if let error { Self.logListenerError("帳本", error) }
             guard let snapshot, snapshot.exists, let data = snapshot.data() else { return }
             if snapshot.metadata.hasPendingWrites { return }
             Task { @MainActor in state.groupData = data; apply() }
         }
         let subReg = groupRef.collection("expenses")
-            .addSnapshotListener(includeMetadataChanges: false) { snapshot, _ in
+            .addSnapshotListener(includeMetadataChanges: false) { snapshot, error in
+                if let error { Self.logListenerError("花費", error) }
                 guard let snapshot else { return }
                 if snapshot.metadata.hasPendingWrites { return }
                 let docs = snapshot.documents.map { $0.data() }
                 Task { @MainActor in state.subDocs = docs; apply() }
             }
         return SharingSubscription { groupReg.remove(); subReg.remove() }
+    }
+
+    /// 即時同步的錯誤原本直接丟掉；至少留在問題回報的操作紀錄裡。
+    nonisolated private static func logListenerError(_ target: String, _ error: Error) {
+        let text = "即時同步失敗（\(target)）：\(DiagnosticLog.describe(error))"
+        Task { @MainActor in DiagnosticLog.shared.record(text) }
     }
 
     /// 合併 group 文件層級資料：名稱、結算狀態、基準幣、成員。（expenses 改由 mergeExpenses 處理）

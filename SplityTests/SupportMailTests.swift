@@ -63,6 +63,19 @@ struct SupportMailTests {
         #expect(body.contains("1.8.2 (18)"))
     }
 
+    @Test("有操作紀錄時接在環境資訊後面；沒有就不出現這段")
+    func appendsActivityLog() throws {
+        let log = "最近操作紀錄：\n10/27 13:21:05 匯率取得失敗：逾時"
+        let urlWithLog = try #require(SupportMail.url(body: "x", diagnostics: diagnostics, activityLog: log))
+        let withLog = try #require(queryValue(urlWithLog, "body"))
+        #expect(withLog.hasSuffix(log))
+        #expect(withLog.contains("zh-Hant\n\n最近操作紀錄："))
+
+        let urlWithout = try #require(SupportMail.url(body: "x", diagnostics: diagnostics, activityLog: ""))
+        let without = try #require(queryValue(urlWithout, "body"))
+        #expect(!without.contains("最近操作紀錄"))
+    }
+
     /// mailto 的 query 由 URLComponents 解析，值本身已經解過碼。
     private func queryValue(_ url: URL, _ name: String) -> String? {
         URLComponents(url: url, resolvingAgainstBaseURL: false)?

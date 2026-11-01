@@ -102,6 +102,9 @@ struct GroupListView: View {
                 } message: {
                     Text("請輸入新的帳本名稱")
                 }
+                .onChange(of: saveError) { _, error in
+                    if let error { DiagnosticLog.shared.record("帳本列表儲存錯誤：\(error)") }
+                }
                 .alert("儲存失敗", isPresented: Binding(
                     get: { saveError != nil },
                     set: { if !$0 { saveError = nil } }
@@ -377,8 +380,10 @@ struct GroupListView: View {
             do {
                 let ctx = modelContext
                 try await sharingManager.joinByInviteCode(upperCode, modelContext: ctx)
+                DiagnosticLog.shared.record("加入共享帳本成功")
                 joinSuccess = true
             } catch {
+                DiagnosticLog.shared.record("加入共享帳本失敗：\(DiagnosticLog.describe(error))")
                 joinError = error.localizedDescription
             }
             isJoining = false
@@ -488,6 +493,7 @@ struct GroupListView: View {
         let trimmed = newGroupName.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
         modelContext.insert(Group(name: trimmed, baseCurrencyCode: newGroupBaseCurrency))
+        DiagnosticLog.shared.record("建立帳本（結算幣別 \(newGroupBaseCurrency)）")
         newGroupName = ""
         showingAddGroup = false
         save()
@@ -511,6 +517,7 @@ struct GroupListView: View {
         )
         modelContext.insert(record)
         group.isSettled = true
+        DiagnosticLog.shared.record("結清帳本")
         // 本機存檔失敗就不算結清成功：不計次、也不問評分
         guard save() else { return }
         Task {

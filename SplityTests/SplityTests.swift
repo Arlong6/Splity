@@ -710,3 +710,75 @@ struct ExpenseMergePolicyTests {
         #expect(decision == .purge)
     }
 }
+
+// MARK: - 「儲存」按不下去的原因
+
+struct SaveBlockerTests {
+
+    /// 用既有花費建 VM（避開新花費分支對 Firebase 的呼叫），再把欄位設成「可以存」的狀態
+    private func readyViewModel(_ ctx: ModelContext) -> (ExpenseEditViewModel, Member, Member) {
+        let group = Group(name: "G", baseCurrencyCode: "TWD"); ctx.insert(group)
+        let a = Member(name: "A"); ctx.insert(a); group.members.append(a)
+        let b = Member(name: "B"); ctx.insert(b); group.members.append(b)
+        let e = makeExpense(title: "x", total: 100, payer: a, splits: [(a, 50), (b, 50)], ctx: ctx)
+        let vm = ExpenseEditViewModel(group: group, expense: e)
+        vm.title = "午餐"
+        vm.totalAmountString = "100"
+        vm.selectedPayer = a
+        vm.selectedMemberIDs = [a.id, b.id]
+        vm.isEvenSplit = true
+        return (vm, a, b)
+    }
+
+    @Test("欄位都齊全時沒有阻擋原因")
+    func readyHasNoBlocker() throws {
+        let ctx = ModelContext(try makeContainer())
+        let (vm, _, _) = readyViewModel(ctx)
+        #expect(vm.saveBlocker == nil)
+        #expect(vm.isValid)
+    }
+
+    @Test("依序回報第一個缺的欄位")
+    func reportsMissingFields() throws {
+        let ctx = ModelContext(try makeContainer())
+        let (vm, _, _) = readyViewModel(ctx)
+        vm.totalAmountString = "0"
+        #expect(vm.saveBlocker == .invalidAmount)
+        vm.title = "  "
+        #expect(vm.saveBlocker == .missingTitle)
+        vm.title = "午餐"; vm.totalAmountString = "100"; vm.selectedPayer = nil
+        #expect(vm.saveBlocker == .missingPayer)
+        let (vm2, _, _) = readyViewModel(ctx)
+        vm2.selectedMemberIDs = []
+        #expect(vm2.saveBlocker == .noMembers)
+        #expect(!vm2.isValid)
+    }
+
+    @Test("自訂分帳加總不符時帶出差額（正負代表多或少）")
+    func customSumMismatchCarriesDifference() throws {
+        let ctx = ModelContext(try makeContainer())
+        let (vm, a, b) = readyViewModel(ctx)
+        vm.isEvenSplit = false
+        vm.customAmounts = [a.id: "50", b.id: "49"]
+        #expect(vm.saveBlocker == .customSumMismatch(difference: -1))
+        #expect(vm.saveBlocker?.logDescription == "自訂分帳加總不符（差 -1）")
+        vm.customAmounts = [a.id: "50", b.id: "52"]
+        #expect(vm.saveBlocker == .customSumMismatch(difference: 2))
+        vm.customAmounts = [a.id: "50", b.id: "50"]
+        #expect(vm.saveBlocker == nil)
+    }
+
+    @Test("外幣沒有匯率：取得中與取得失敗分開")
+    func foreignWithoutRate() throws {
+        let ctx = ModelContext(try makeContainer())
+        let (vm, _, _) = readyViewModel(ctx)
+        vm.selectedCurrencyCode = "NZD"
+        vm.lockedRate = nil
+        vm.isFetchingRate = true
+        #expect(vm.saveBlocker == .fetchingRate)
+        vm.isFetchingRate = false
+        #expect(vm.saveBlocker == .rateUnavailable)
+        vm.lockedRate = Decimal(string: "18.36")
+        #expect(vm.saveBlocker == nil)
+    }
+}

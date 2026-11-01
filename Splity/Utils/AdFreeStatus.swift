@@ -118,11 +118,18 @@ final class AdFreeStatus {
     func purchaseWithMessage() async -> String? {
         do {
             switch try await purchase() {
-            case .purchased: return localized("已移除廣告，謝謝支持！")
-            case .pending: return localized("購買待核准，完成後會自動生效。")
-            case .cancelled: return nil
+            case .purchased:
+                DiagnosticLog.shared.record("購買移除廣告：成功")
+                return localized("已移除廣告，謝謝支持！")
+            case .pending:
+                DiagnosticLog.shared.record("購買移除廣告：待核准")
+                return localized("購買待核准，完成後會自動生效。")
+            case .cancelled:
+                DiagnosticLog.shared.record("購買移除廣告：取消")
+                return nil
             }
         } catch {
+            DiagnosticLog.shared.record("購買移除廣告：失敗 \(DiagnosticLog.describe(error))")
             return localized("購買失敗") + "\n" + error.localizedDescription
         }
     }

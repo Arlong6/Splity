@@ -8,6 +8,7 @@ struct ExpenseEditView: View {
     @State private var viewModel: ExpenseEditViewModel
     @State private var saveError: String?
     @State private var showingCurrencyPicker = false
+    @State private var didSave = false
 
     let isEditing: Bool
 
@@ -69,9 +70,15 @@ struct ExpenseEditView: View {
                                 .foregroundStyle(.primary)
                                 .monospacedDigit()
                         } else if viewModel.rateFetchFailed {
-                            Text("無法取得匯率")
-                                .font(.caption)
-                                .foregroundStyle(.red)
+                            Button {
+                                DiagnosticLog.shared.record("按下重試匯率")
+                                Task { await viewModel.refreshExchangeRate() }
+                            } label: {
+                                Label("無法取得匯率，點此重試", systemImage: "arrow.clockwise")
+                                    .font(.caption)
+                                    .foregroundStyle(.red)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                     if !viewModel.isFetchingRate, viewModel.lockedRate != nil {
@@ -190,6 +197,17 @@ struct ExpenseEditView: View {
                 }
             }
 
+            // MARK: - 為什麼還不能儲存
+            // 「儲存」灰掉時使用者看不出原因（曾回報「無法再增加新的花費」），在表單底部直接說明
+            if let blocker = viewModel.saveBlocker {
+                Section {
+                    Label(blockerMessage(blocker), systemImage: "info.circle")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("saveBlockerReason")
+                }
+            }
+
             // MARK: - 編輯資訊
             if let exp = viewModel.existingExpense {
                 Section {
@@ -216,6 +234,7 @@ struct ExpenseEditView: View {
             CurrencyPickerView(selection: Binding(
                 get: { viewModel.selectedCurrencyCode },
                 set: { newCode in
+                    DiagnosticLog.shared.record("切換幣種 \(viewModel.selectedCurrencyCode) → \(newCode)")
                     viewModel.selectedCurrencyCode = newCode
                     viewModel.lockedRate = nil
                     viewModel.rateFetchFailed = false
@@ -224,10 +243,19 @@ struct ExpenseEditView: View {
             ))
         }
         .task {
+            DiagnosticLog.shared.record(isEditing ? "開啟編輯花費" : "開啟新增花費")
             // 編輯既有外幣花費也補抓最新 5 日低（不會覆蓋已存在的鎖定值，但首次進入空值時會帶）
             if viewModel.isForeign && viewModel.lockedRate == nil {
                 await viewModel.refreshExchangeRate()
             }
+        }
+        .onChange(of: viewModel.isEvenSplit) { _, even in
+            DiagnosticLog.shared.record(even ? "切換為平均分帳" : "切換為自訂分帳")
+        }
+        .onDisappear {
+            guard !didSave else { return }
+            let reason = viewModel.saveBlocker.map { "（無法儲存：\($0.logDescription)）" } ?? ""
+            DiagnosticLog.shared.record("沒儲存就關閉\(reason)")
         }
         .alert("儲存失敗", isPresented: Binding(
             get: { saveError != nil },
@@ -244,13 +272,32 @@ struct ExpenseEditView: View {
             ToolbarItem(placement: .confirmationAction) {
                 Button("儲存") {
                     if let error = viewModel.save(modelContext: modelContext) {
+                        DiagnosticLog.shared.record("儲存花費失敗：\(error)")
                         saveError = error
                     } else {
+                        didSave = true
+                        DiagnosticLog.shared.record(isEditing ? "儲存花費成功（編輯）" : "儲存花費成功（新增）")
                         dismiss()
                     }
                 }
                 .disabled(!viewModel.isValid)
             }
+        }
+    }
+
+    private func blockerMessage(_ blocker: ExpenseEditViewModel.SaveBlocker) -> String {
+        switch blocker {
+        case .missingTitle: return localized("還不能儲存：請輸入品項名稱")
+        case .invalidAmount: return localized("還不能儲存：請輸入大於 0 的金額")
+        case .missingPayer: return localized("還不能儲存：請選擇誰先付")
+        case .noMembers: return localized("還不能儲存：請至少選一位分帳成員")
+        case .customSumMismatch(let diff):
+            let amount = abs(diff).formatted(.currency(code: inputCurrencyCode))
+            return diff > 0
+                ? localized("還不能儲存：分帳合計比總額多 \(amount)")
+                : localized("還不能儲存：分帳合計比總額少 \(amount)")
+        case .fetchingRate: return localized("正在取得匯率…")
+        case .rateUnavailable: return localized("還不能儲存：無法取得匯率，請點上方「重試」或改用結算幣別")
         }
     }
 

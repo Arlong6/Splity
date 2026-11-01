@@ -56,8 +56,10 @@ enum SupportMail {
     ///
     /// 用 `URLComponents` 而不是自己串字串：內文會包含換行、`&`、`#`，手動組會在第一個
     /// `&` 就把 query 切斷，使用者拿到的信會只剩半截。
-    static func url(body: String, diagnostics: Diagnostics = .current()) -> URL? {
-        let footer = """
+    /// `activityLog` 是 `DiagnosticLog` 的「最近操作紀錄」區塊，空字串就不附。
+    static func url(body: String, diagnostics: Diagnostics = .current(),
+                    activityLog: String = DiagnosticLog.shared.reportSection()) -> URL? {
+        var footer = """
 
 
         ——————————
@@ -65,6 +67,9 @@ enum SupportMail {
         \(diagnostics.device) · iOS \(diagnostics.systemVersion)
         \(diagnostics.language)
         """
+        if !activityLog.isEmpty {
+            footer += "\n\n" + activityLog
+        }
 
         var components = URLComponents()
         components.scheme = "mailto"

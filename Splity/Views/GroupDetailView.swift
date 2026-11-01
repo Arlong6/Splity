@@ -83,6 +83,8 @@ struct GroupDetailView: View {
                 CurrencyPickerView(selection: $defaultCurrencySelection)
             }
             .onAppear {
+                DiagnosticLog.shared.record(
+                    "開啟帳本（\(group.members.count) 人、\(group.expenses.filter { !$0.archived }.count) 筆、\(group.isShared ? "共享" : "未共享")）")
                 defaultInputCurrency = GroupPrefs.defaultInputCurrency(for: group.id)
                 if group.isShared, subscription == nil {
                     subscription = sharingManager.listenToChanges(for: group, modelContext: modelContext)
@@ -99,6 +101,12 @@ struct GroupDetailView: View {
                     syncError = "同步失敗：\(pending)"
                 }
                 markActivitySeen()
+            }
+            .onChange(of: syncError) { _, error in
+                if let error { DiagnosticLog.shared.record("帳本頁同步錯誤：\(error)") }
+            }
+            .onChange(of: saveError) { _, error in
+                if let error { DiagnosticLog.shared.record("帳本頁儲存錯誤：\(error)") }
             }
             .onDisappear {
                 subscription?.stop()
@@ -284,6 +292,7 @@ struct GroupDetailView: View {
         expense.updatedAt = Date()
         expense.lastEditorName = sharingManager.claimedMember(in: group)?.name
         expenseToDelete = nil
+        DiagnosticLog.shared.record("刪除花費")
         saveAndPush(expense)
         logAction(.deletedExpense, target: title)
     }

@@ -99,23 +99,52 @@ final class ExpenseEditViewModel {
         return Dictionary(uniqueKeysWithValues: restored.map { ($0.id, $0.amount) })
     }
 
-    var isValid: Bool {
-        guard !title.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
-        guard let total = totalAmount, total > 0 else { return false }
-        guard selectedPayer != nil else { return false }
-        guard !selectedMemberIDs.isEmpty else { return false }
+    /// 「儲存」按不下去的原因。畫面上顯示給使用者看，也寫進問題回報的操作紀錄。
+    enum SaveBlocker: Equatable {
+        case missingTitle
+        case invalidAmount
+        case missingPayer
+        case noMembers
+        /// 自訂分帳加總 − 總額（輸入幣別）
+        case customSumMismatch(difference: Decimal)
+        case fetchingRate
+        case rateUnavailable
 
-        if !isEvenSplit {
-            guard customAmountsSum == total else { return false }
+        /// 操作紀錄用；固定中文，給開發者看。只有差額這個數字，不帶任何使用者輸入的內容。
+        var logDescription: String {
+            switch self {
+            case .missingTitle: return "沒填名稱"
+            case .invalidAmount: return "金額不是大於 0 的數字"
+            case .missingPayer: return "沒選付款人"
+            case .noMembers: return "沒選分帳的人"
+            case .customSumMismatch(let diff): return "自訂分帳加總不符（差 \(diff)）"
+            case .fetchingRate: return "匯率取得中"
+            case .rateUnavailable: return "外幣沒有匯率"
+            }
+        }
+    }
+
+    var saveBlocker: SaveBlocker? {
+        guard !title.trimmingCharacters(in: .whitespaces).isEmpty else { return .missingTitle }
+        guard let total = totalAmount, total > 0 else { return .invalidAmount }
+        guard selectedPayer != nil else { return .missingPayer }
+        guard !selectedMemberIDs.isEmpty else { return .noMembers }
+
+        if !isEvenSplit, customAmountsSum != total {
+            return .customSumMismatch(difference: customAmountsSum - total)
         }
 
         // 外幣必須要有取得的匯率
         if isForeign {
-            guard let rate = lockedRate, rate > 0 else { return false }
+            guard let rate = lockedRate, rate > 0 else {
+                return isFetchingRate ? .fetchingRate : .rateUnavailable
+            }
         }
 
-        return true
+        return nil
     }
+
+    var isValid: Bool { saveBlocker == nil }
 
     init(group: Group, expense: Expense? = nil) {
         self.group = group
@@ -225,15 +254,18 @@ final class ExpenseEditViewModel {
         isFetchingRate = true
         rateFetchFailed = false
         defer { isFetchingRate = false }
+        let pair = "\(selectedCurrencyCode) → \(group.baseCurrencyCode)"
         do {
             let rate = try await CurrencyService.shared.fetchLatestRate(
                 from: selectedCurrencyCode,
                 to: group.baseCurrencyCode
             )
             lockedRate = rate
+            DiagnosticLog.shared.record("匯率取得成功（\(pair)）")
         } catch {
             lockedRate = nil
             rateFetchFailed = true
+            DiagnosticLog.shared.record("匯率取得失敗（\(pair)）：\(DiagnosticLog.describe(error))")
         }
     }
 
