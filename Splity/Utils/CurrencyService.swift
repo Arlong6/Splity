@@ -88,6 +88,12 @@ final class CurrencyService {
         guard decoded.result == "success", let rate = decoded.rates?[to] else {
             throw FetchError.rateNotFound
         }
-        return Decimal(rate)
+        return Self.decimal(fromRate: rate)
+    }
+
+    /// `Decimal(Double)` 會帶出二進位尾數（0.001263 → 0.0012629999999999997952），
+    /// 乘上金額後字串太長、上傳被 Firestore rules 拒收。走字串才是 API 給的那個數字。
+    static func decimal(fromRate rate: Double) -> Decimal {
+        Decimal(string: "\(rate)") ?? Decimal(rate)
     }
 }

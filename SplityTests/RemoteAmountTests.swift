@@ -84,3 +84,63 @@ struct GroupPrefsClaimTests {
         #expect(GroupPrefs.defaultInputCurrency(for: id) == nil)
     }
 }
+
+/// Firestore rules 的 `validAmount`：純小數字串、最多 24 字。超過會整批寫入被拒。
+struct RemoteAmountEncodingTests {
+
+    private func passesRules(_ s: String) -> Bool {
+        s.count <= RemoteAmount.maxEncodedLength
+            && s.range(of: "^[0-9]+(\\.[0-9]+)?$", options: .regularExpression) != nil
+    }
+
+    @Test("一般金額原樣輸出")
+    func shortValuesUnchanged() {
+        #expect(RemoteAmount.encode(Decimal(string: "1234.56")!) == "1234.56")
+        #expect(RemoteAmount.encode(1000) == "1000")
+        #expect(RemoteAmount.encode(0) == "0")
+    }
+
+    @Test("手機裡舊資料的長小數：上傳時收斂到 24 字內，值幾乎不變")
+    func longValueFitsRules() throws {
+        // 實際案例：VND → TWD 匯率 0.001263、金額 8.99，舊寫法算出 26 字的 totalAmount
+        let total = Decimal(string: "8.99")! * Decimal(0.001263)
+        #expect("\(total)".count > RemoteAmount.maxEncodedLength)
+
+        let encoded = RemoteAmount.encode(total)
+        #expect(passesRules(encoded))
+        let decoded = try #require(RemoteAmount.parse(encoded))
+        #expect(abs(decoded - total) < Decimal(string: "0.00000000000000000001")!)
+    }
+
+    @Test("整數位多時也放得下")
+    func longValueWithLargeIntegerPart() {
+        let value = Decimal(string: "123456789012.12345678901234567")!
+        #expect(passesRules(RemoteAmount.encode(value)))
+    }
+
+    @Test("進位造成整數位變多時仍放得下")
+    func roundingCarry() {
+        let value = Decimal(string: "9.99999999999999999999999999")!
+        #expect(passesRules(RemoteAmount.encode(value)))
+    }
+}
+
+struct ExchangeRateConversionTests {
+
+    @Test("匯率不帶 Double 的二進位尾數")
+    func noBinaryNoise() {
+        #expect(CurrencyService.decimal(fromRate: 0.001263) == Decimal(string: "0.001263")!)
+        #expect("\(CurrencyService.decimal(fromRate: 0.001263))" == "0.001263")
+    }
+
+    @Test("很小的匯率（Double 會印成科學記號）也轉得對")
+    func tinyRate() {
+        #expect(CurrencyService.decimal(fromRate: 0.000038) == Decimal(string: "0.000038")!)
+    }
+
+    @Test("修好後實際案例的總額是乾淨的短字串")
+    func realCaseTotal() {
+        let total = Decimal(string: "8.99")! * CurrencyService.decimal(fromRate: 0.001263)
+        #expect("\(total)" == "0.01135437")
+    }
+}

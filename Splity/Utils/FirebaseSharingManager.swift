@@ -846,7 +846,7 @@ final class FirebaseSharingManager {
         var eDict: [String: Any] = [
             "id": expense.id.uuidString,
             "title": expense.title,
-            "totalAmount": "\(expense.totalAmount)",
+            "totalAmount": RemoteAmount.encode(expense.totalAmount),
             "payerId": expense.paidBy?.id.uuidString ?? "",
             "createdAt": Timestamp(date: expense.createdAt),
             "isDeleted": expense.archived
@@ -855,8 +855,8 @@ final class FirebaseSharingManager {
         if let note = expense.note { eDict["note"] = note }
         if let deletedAt = expense.deletedAt { eDict["deletedAt"] = Timestamp(date: deletedAt) }
         if let oc = expense.originalCurrencyCode { eDict["originalCurrencyCode"] = oc }
-        if let oa = expense.originalAmount { eDict["originalAmount"] = "\(oa)" }
-        if let rate = expense.exchangeRate { eDict["exchangeRate"] = "\(rate)" }
+        if let oa = expense.originalAmount { eDict["originalAmount"] = RemoteAmount.encode(oa) }
+        if let rate = expense.exchangeRate { eDict["exchangeRate"] = RemoteAmount.encode(rate) }
         if let ev = expense.isEvenSplit { eDict["isEvenSplit"] = ev }
         if let ua = expense.updatedAt { eDict["updatedAt"] = Timestamp(date: ua) }
         if let ed = expense.lastEditorName { eDict["lastEditorName"] = ed }

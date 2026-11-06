@@ -30,4 +30,22 @@ enum RemoteAmount {
     static func parseOrZero(_ raw: Any?) -> Decimal {
         parse(raw) ?? 0
     }
+
+    /// Firestore rules `validAmount` 允許的最長字串。
+    static let maxEncodedLength = 24
+
+    /// 上傳用的金額字串。超過上限就把小數收斂到放得下，否則 rules 會拒收，
+    /// 而且同一個 batch 的其他花費也一起失敗。
+    /// 舊版的匯率帶 Double 尾數，手機裡可能還存著這種長小數，所以不能只靠源頭修正。
+    static func encode(_ value: Decimal) -> String {
+        let plain = "\(value)"
+        guard plain.count > maxEncodedLength, let dot = plain.firstIndex(of: ".") else { return plain }
+        let integerDigits = plain.distance(from: plain.startIndex, to: dot)
+        // 多留一位給進位（9.99… → 10.00…）
+        let scale = maxEncodedLength - integerDigits - 2
+        var result = Decimal()
+        var mutableValue = value
+        NSDecimalRound(&result, &mutableValue, scale, .plain)
+        return "\(result)"
+    }
 }

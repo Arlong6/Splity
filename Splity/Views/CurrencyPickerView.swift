@@ -1,11 +1,14 @@
 import SwiftUI
 
-/// 共用幣別選單。先列常用、其餘可搜尋。
+/// 共用幣別選單。先列最近使用、再列常用，其餘可搜尋。
 struct CurrencyPickerView: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selection: String
     @State private var searchText = ""
+    // 開啟時讀一次就好；選完就關掉，不需要即時更新
+    @State private var recentCodes = RecentCurrencies.list()
 
+    private var filteredRecent: [String] { filter(recentCodes) }
     private var commonCodes: [String] { CurrencyService.common }
     private var otherCodes: [String] {
         CurrencyService.allSupported.filter { !commonCodes.contains($0) }.sorted()
@@ -25,6 +28,11 @@ struct CurrencyPickerView: View {
     var body: some View {
         NavigationStack {
             List {
+                if !filteredRecent.isEmpty {
+                    Section("最近使用") {
+                        ForEach(filteredRecent, id: \.self) { code in row(code) }
+                    }
+                }
                 if !filteredCommon.isEmpty {
                     Section("常用") {
                         ForEach(filteredCommon, id: \.self) { code in row(code) }
@@ -50,6 +58,7 @@ struct CurrencyPickerView: View {
     private func row(_ code: String) -> some View {
         Button {
             selection = code
+            RecentCurrencies.record(code)
             dismiss()
         } label: {
             HStack(spacing: 12) {

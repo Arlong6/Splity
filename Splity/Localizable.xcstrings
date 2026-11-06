@@ -2724,6 +2724,22 @@
         }
       }
     },
+    "最近使用": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recent"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最近使用"
+          }
+        }
+      }
+    },
     "有 %lld 筆新動態": {
       "localizations": {
         "en": {

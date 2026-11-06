@@ -47,6 +47,7 @@ struct ExpenseEditView: View {
                         .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("currencyButton")
 
                     TextField("金額", text: $viewModel.totalAmountString)
                         .keyboardType(.decimalPad)
