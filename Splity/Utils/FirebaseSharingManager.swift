@@ -396,16 +396,12 @@ final class FirebaseSharingManager {
         }
     }
 
-    /// 只推送 name/isSettled/baseCurrencyCode，完全不碰 members 陣列——
+    /// 只推送單一欄位，完全不碰 members 陣列——
     /// 給「成員沒變」的路徑（列表結清/改名）用，避免整包覆寫洗掉併發的認領/新成員。
-    func pushGroupScalars(for group: Group) async throws {
+    func pushGroupField(_ field: GroupField, of group: Group) async throws {
         guard let firestoreId = group.firestoreGroupId else { return }
         try await signInAnonymously()
-        try await db.collection("groups").document(firestoreId).updateData([
-            "name": group.name,
-            "isSettled": group.isSettled,
-            "baseCurrencyCode": group.baseCurrencyCode
-        ])
+        try await db.collection("groups").document(firestoreId).updateData(field.payload(of: group))
     }
 
     /// 原子認領成員：用 transaction 只改「這一位」成員的 claimedByUid，避免兩人同時認領
@@ -1045,6 +1041,20 @@ enum SharingError: LocalizedError {
         case .inviteCodeNotFound: return localized("找不到此邀請碼，請確認輸入是否正確")
         case .inviteCodeExpired: return localized("邀請碼已過期，請向對方索取新的邀請碼")
         case .groupNotFound: return localized("找不到共享的帳目")
+        }
+    }
+}
+
+/// 列表頁可單獨推送的帳本欄位。列表沒有掛 listener，本地其他欄位可能已過期，
+/// 所以只送這次改動的欄位，不能把過期的幣別或結清狀態蓋回遠端。
+enum GroupField {
+    case name
+    case isSettled
+
+    func payload(of group: Group) -> [String: Any] {
+        switch self {
+        case .name: return ["name": group.name]
+        case .isSettled: return ["isSettled": group.isSettled]
         }
     }
 }

@@ -160,7 +160,7 @@ struct ChangeBaseCurrencyView: View {
         let sourceCode = expense.originalCurrencyCode ?? oldBase
         let originalAmount = expense.originalAmount ?? expense.totalAmount
         let rate = effectiveRate(for: sourceCode)
-        let newAmount: Decimal? = rate.map { originalAmount * $0 }
+        let newAmount: Decimal? = rate.map { Decimal.round(originalAmount * $0, in: newBase) }
         VStack(alignment: .leading, spacing: 2) {
             Text(expense.title).font(.callout)
             HStack(spacing: 6) {
@@ -218,32 +218,11 @@ struct ChangeBaseCurrencyView: View {
     private func apply() {
         guard allRatesValid() else { return }
 
-        let baseScale = Decimal.currencyFractionDigits(newBase)
-
         // 含 archived：見 sourceCurrencies 的說明（還原污染防護）
         for expense in group.expenses {
             let sourceCode = expense.originalCurrencyCode ?? oldBase
-            let originalAmount = expense.originalAmount ?? expense.totalAmount
             guard let rate = effectiveRate(for: sourceCode) else { continue }
-
-            let newTotal = originalAmount * rate
-            let oldTotal = expense.totalAmount
-
-            if sourceCode == newBase {
-                // 換到新基準幣後此筆不再是外幣
-                expense.totalAmount = newTotal
-                expense.originalCurrencyCode = nil
-                expense.originalAmount = nil
-                expense.exchangeRate = nil
-            } else {
-                expense.totalAmount = newTotal
-                expense.originalCurrencyCode = sourceCode
-                expense.originalAmount = originalAmount
-                expense.exchangeRate = rate
-            }
-
-            // 等比例縮放 splits（最後一筆吸收捨入差）
-            scaleSplits(of: expense, oldTotal: oldTotal, newTotal: newTotal, scale: baseScale)
+            BaseCurrencyConversion.convert(expense, from: sourceCode, rate: rate, to: newBase)
         }
 
         group.baseCurrencyCode = newBase
@@ -272,33 +251,5 @@ struct ChangeBaseCurrencyView: View {
         }
 
         dismiss()
-    }
-
-    private func scaleSplits(of expense: Expense, oldTotal: Decimal, newTotal: Decimal, scale: Int) {
-        guard !expense.splits.isEmpty else { return }
-        if oldTotal == 0 {
-            // 避免 div-by-zero；平分
-            let n = expense.splits.count
-            var per = Decimal()
-            var divided = newTotal / Decimal(n)
-            NSDecimalRound(&per, &divided, scale, .up)
-            for split in expense.splits { split.amount = per }
-            return
-        }
-
-        let factor = newTotal / oldTotal
-        var accumulated: Decimal = 0
-        let lastIndex = expense.splits.count - 1
-        for (i, split) in expense.splits.enumerated() {
-            if i == lastIndex {
-                split.amount = newTotal - accumulated
-            } else {
-                var rounded = Decimal()
-                var mutable = split.amount * factor
-                NSDecimalRound(&rounded, &mutable, scale, .plain)
-                split.amount = rounded
-                accumulated += rounded
-            }
-        }
     }
 }

@@ -55,9 +55,15 @@ struct CurrencyPickerView: View {
         }
     }
 
+    /// 點已選中的幣別不寫入：呼叫端的 setter 可能有副作用（花費表單會清掉鎖定匯率並重抓）。
+    static func select(_ code: String, into selection: Binding<String>) {
+        guard code != selection.wrappedValue else { return }
+        selection.wrappedValue = code
+    }
+
     private func row(_ code: String) -> some View {
         Button {
-            selection = code
+            Self.select(code, into: $selection)
             RecentCurrencies.record(code)
             dismiss()
         } label: {

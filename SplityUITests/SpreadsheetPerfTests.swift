@@ -8,6 +8,8 @@ final class SpreadsheetPerfTests: XCTestCase {
     @MainActor
     func testLargeSheetOpenTime() throws {
         continueAfterFailure = false
+        // SplityUITestsLaunchTests 跑遍各畫面方向，結束時可能留在橫向，這裡的帳本列就會落在畫面外
+        XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
         app.launchArguments = ["-IS_UI_TESTING", "YES", "-UIResetDefaults", "-SeedLargeSheet", "-appLanguage", "zh-Hant", "-AppleLanguages", "(zh-Hant)"]
         app.launch()

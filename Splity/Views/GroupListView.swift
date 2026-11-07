@@ -255,7 +255,7 @@ struct GroupListView: View {
                             Button {
                                 group.isSettled = false
                                 save()
-                                Task { await pushMetaIfShared(group, logging: .unsettledGroup) }
+                                Task { await pushMetaIfShared(group, .isSettled, logging: .unsettledGroup) }
                             } label: {
                                 Label("取消結清", systemImage: "arrow.uturn.backward")
                             }
@@ -505,7 +505,7 @@ struct GroupListView: View {
         group.name = trimmed
         groupToRename = nil
         save()
-        Task { await pushMetaIfShared(group) }
+        Task { await pushMetaIfShared(group, .name) }
     }
 
     private func performSettle(_ group: Group) {
@@ -523,7 +523,7 @@ struct GroupListView: View {
         Task {
             // 共享帳本要等 Firestore 真的收下才算成功。推送被拒（匿名登入失敗、
             // rules 擋下、帳本已被擁有者刪除…）會跳「儲存失敗」，那時絕不能問評分。
-            guard await pushMetaIfShared(group, logging: .settledGroup) else { return }
+            guard await pushMetaIfShared(group, .isSettled, logging: .settledGroup) else { return }
             await askForReviewIfEarned(for: group)
         }
     }
@@ -547,10 +547,10 @@ struct GroupListView: View {
     /// 且下次同步會把本機改動退回遠端舊值。
     /// 回傳「這次操作有沒有真的成功」；非共享帳本沒有遠端這一段，直接算成功。
     @discardableResult
-    private func pushMetaIfShared(_ group: Group, logging action: ActivityAction? = nil) async -> Bool {
+    private func pushMetaIfShared(_ group: Group, _ field: GroupField, logging action: ActivityAction? = nil) async -> Bool {
         guard group.isShared else { return true }
         do {
-            try await sharingManager.pushGroupScalars(for: group)
+            try await sharingManager.pushGroupField(field, of: group)
             if let action {
                 await sharingManager.logActivity(for: group, action: action, target: group.name)
             }

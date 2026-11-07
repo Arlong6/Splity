@@ -21,6 +21,14 @@ final class ExpenseEditViewModel {
     var lockedRate: Decimal? = nil
     var isFetchingRate: Bool = false
     var rateFetchFailed: Bool = false
+    /// 每次抓匯率遞增；回應回來時不是最新一次就丟掉，避免鎖到前一個幣別的匯率。
+    @ObservationIgnored
+    private var rateRequestID = 0
+    /// 測試用：換掉就能控制匯率回應的時機。
+    @ObservationIgnored
+    var rateFetcher: (_ from: String, _ to: String) async throws -> Decimal = { from, to in
+        try await CurrencyService.shared.fetchLatestRate(from: from, to: to)
+    }
 
     // Split config（金額用「使用者輸入幣別」表示）
     var isEvenSplit = true
@@ -246,23 +254,27 @@ final class ExpenseEditViewModel {
     /// 切到外幣時自動抓「過去 5 日最低匯率」鎖定。失敗會把 rateFetchFailed 設成 true。
     @MainActor
     func refreshExchangeRate() async {
+        rateRequestID += 1
+        let requestID = rateRequestID
         if !isForeign {
             lockedRate = nil
             rateFetchFailed = false
+            isFetchingRate = false
             return
         }
         isFetchingRate = true
         rateFetchFailed = false
-        defer { isFetchingRate = false }
+        defer {
+            if requestID == rateRequestID { isFetchingRate = false }
+        }
         let pair = "\(selectedCurrencyCode) → \(group.baseCurrencyCode)"
         do {
-            let rate = try await CurrencyService.shared.fetchLatestRate(
-                from: selectedCurrencyCode,
-                to: group.baseCurrencyCode
-            )
+            let rate = try await rateFetcher(selectedCurrencyCode, group.baseCurrencyCode)
+            guard requestID == rateRequestID else { return }
             lockedRate = rate
             DiagnosticLog.shared.record("匯率取得成功（\(pair)）")
         } catch {
+            guard requestID == rateRequestID else { return }
             lockedRate = nil
             rateFetchFailed = true
             DiagnosticLog.shared.record("匯率取得失敗（\(pair)）：\(DiagnosticLog.describe(error))")
