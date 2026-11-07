@@ -9,7 +9,7 @@ enum SupportMail {
 
     /// ⚠️ 這個位址會編進 binary，跟 `SplityLinks.webJoin` 的網域一樣，送審後改不掉，
     /// 要換得併進下一次發版。
-    static let address = "tony0912045596@gmail.com"
+    static let address = "arlongapp@gmail.com"
 
     /// 附在信末的環境資訊。做成一包值而不是在函式裡直接讀系統，是為了能測。
     struct Diagnostics {
