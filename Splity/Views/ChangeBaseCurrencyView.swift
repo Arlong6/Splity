@@ -239,7 +239,7 @@ struct ChangeBaseCurrencyView: View {
             let manager = sharingManager
             Task {
                 await manager.pushInBackground {
-                    try await manager.pushChanges(for: sharedGroup)
+                    try await manager.pushBaseCurrencyChange(for: sharedGroup)
                 }
                 await manager.logActivity(
                     for: sharedGroup,

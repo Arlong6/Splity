@@ -94,7 +94,7 @@ struct QuickSplitEditView: View {
                 }
             }
             .sheet(isPresented: $showingCurrencyPicker) {
-                CurrencyPickerView(selection: $currencyCode)
+                CurrencyPickerView(selection: $currencyCode, recordsRecent: true)
             }
             .alert("儲存失敗", isPresented: Binding(
                 get: { saveError != nil },

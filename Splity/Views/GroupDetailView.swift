@@ -431,6 +431,7 @@ struct GroupDetailView: View {
 
     private func deleteMembers(at offsets: IndexSet) {
         var removedNames: [String] = []
+        var removedIDs: Set<String> = []
         for index in offsets {
             let member = sortedMembers[index]
             if member.claimedByUid != nil {
@@ -448,9 +449,10 @@ struct GroupDetailView: View {
                 return
             }
             removedNames.append(member.name)
+            removedIDs.insert(member.id.uuidString)
             modelContext.delete(member)
         }
-        save()
+        save(removedMemberIDs: removedIDs)
         for name in removedNames {
             logAction(.removedMember, target: name)
         }
@@ -524,13 +526,13 @@ struct GroupDetailView: View {
     }
 
     /// 儲存並推送「群組層級」變更（成員/結算/名稱），不重寫花費，避免 clobber 併發編輯。
-    private func save() {
+    private func save(removedMemberIDs: Set<String> = []) {
         do {
             try modelContext.save()
             if group.isShared {
                 Task {
                     do {
-                        try await sharingManager.pushGroupMeta(for: group)
+                        try await sharingManager.pushGroupMeta(for: group, removedMemberIDs: removedMemberIDs)
                     } catch {
                         syncError = "同步失敗：\(error.localizedDescription)"
                     }

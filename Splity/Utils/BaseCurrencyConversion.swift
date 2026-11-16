@@ -24,6 +24,8 @@ enum BaseCurrencyConversion {
 
         distribute(newTotal, across: expense.splits, scale: Decimal.currencyFractionDigits(newBase))
 
+        expense.baseCurrencyCode = newBase
+
         // 其他裝置靠這個時間戳判斷要不要套用；沒更新的話，幣別代碼會換，這筆金額卻留在舊幣別的數字。
         expense.updatedAt = Date()
     }

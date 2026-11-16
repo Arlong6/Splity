@@ -3,7 +3,7 @@
   "nonRenewingSubscriptions" : [],
   "products" : [
     {
-      "displayPrice" : "70",
+      "displayPrice" : "50",
       "familyShareable" : false,
       "internalID" : "REMOVE_ADS",
       "localizations" : [

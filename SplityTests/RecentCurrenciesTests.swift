@@ -52,4 +52,14 @@ struct RecentCurrenciesTests {
             #expect(RecentCurrencies.list(defaults: d) == ["NZD"])
         }
     }
+
+    @Test("只有記花費的選單會寫入最近使用，建帳本或換結算幣別不會")
+    func onlyExpensePickersRecord() {
+        withTestDefaults { d in
+            CurrencyPickerView.recordIfNeeded("USD", recordsRecent: false, defaults: d)
+            #expect(RecentCurrencies.list(defaults: d).isEmpty)
+            CurrencyPickerView.recordIfNeeded("JPY", recordsRecent: true, defaults: d)
+            #expect(RecentCurrencies.list(defaults: d) == ["JPY"])
+        }
+    }
 }

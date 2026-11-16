@@ -36,6 +36,9 @@ final class Expense {
     var updatedAt: Date? = nil
     /// 最後編輯者名稱（共享帳本＝當下認領的成員名；本地或未認領為 nil）。
     var lastEditorName: String? = nil
+    /// 存下這筆時帳本的結算幣別（totalAmount 與 splits 的幣別）。nil＝舊資料未記錄。
+    /// 離線記帳時別人可能已換了結算幣別，同步時靠它發現並補換算。
+    var baseCurrencyCode: String? = nil
 
     var isForeignCurrency: Bool { originalCurrencyCode != nil }
 

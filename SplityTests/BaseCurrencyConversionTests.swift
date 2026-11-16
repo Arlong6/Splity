@@ -30,6 +30,15 @@ struct BaseCurrencyConversionTests {
     private func sum(_ e: Expense) -> Decimal { amounts(e).reduce(0, +) }
     private func spread(_ e: Expense) -> Decimal { amounts(e).max()! - amounts(e).min()! }
 
+    @Test("換算後花費記下新的結算幣別，供其他裝置判斷是否還要換算")
+    func recordsNewBase() throws {
+        let context = try makeContext()
+        let e = expense(total: 1000, splits: [500, 500], in: context)
+        e.baseCurrencyCode = "TWD"
+        BaseCurrencyConversion.convert(e, from: "TWD", rate: Decimal(string: "4.8")!, to: "JPY")
+        #expect(e.baseCurrencyCode == "JPY")
+    }
+
     /// 沒更新時間戳的話，別台裝置的 LWW 會跳過這筆，舊金額直接掛上新幣別。
     @Test("換算後更新 updatedAt，其他裝置的合併不會跳過")
     func bumpsUpdatedAt() throws {

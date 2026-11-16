@@ -7,8 +7,13 @@ import UserNotifications
 enum ActivityNotifier {
     static let taskId = "com.arlongchien.Splity.activityCheck"
 
+    /// 測試環境不註冊（SplityApp.init 會跳過）。沒註冊就 submit，系統會直接丟例外讓 App 閃退，
+    /// 所以 scheduleNext 要先看這個旗標。
+    private static var isRegistered = false
+
     /// 必須在 app 完成啟動前註冊（SplityApp.init 呼叫）。
     static func register(container: ModelContainer) {
+        isRegistered = true
         BGTaskScheduler.shared.register(forTaskWithIdentifier: taskId, using: nil) { task in
             // 先排下一次，確保鏈不中斷（本次成敗都要有下一次）
             scheduleNext()
@@ -22,6 +27,7 @@ enum ActivityNotifier {
 
     /// App 退到背景時呼叫；重複 submit 同 id 會自動取代，不會累積。
     static func scheduleNext() {
+        guard isRegistered else { return }
         let request = BGAppRefreshTaskRequest(identifier: taskId)
         request.earliestBeginDate = Date(timeIntervalSinceNow: 30 * 60)
         try? BGTaskScheduler.shared.submit(request)

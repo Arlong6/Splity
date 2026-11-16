@@ -241,7 +241,7 @@ struct ExpenseEditView: View {
                     viewModel.rateFetchFailed = false
                     Task { await viewModel.refreshExchangeRate() }
                 }
-            ))
+            ), recordsRecent: true)
         }
         .task {
             DiagnosticLog.shared.record(isEditing ? "開啟編輯花費" : "開啟新增花費")

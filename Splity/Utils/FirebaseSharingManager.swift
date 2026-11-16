@@ -18,6 +18,16 @@ final class FirebaseSharingManager {
     /// 下一個出現的群組畫面負責顯示並清掉，避免「看起來存好了、其實沒同步出去」。
     var pendingSyncError: String?
 
+    /// 本次執行已嘗試補傳過的花費（雲端完全沒有的那些）。只試一次，
+    /// 被 rules 擋下的資料不會因為每次合併都重送而無限重試。
+    @ObservationIgnored private var repushAttempted: Set<UUID> = []
+    /// 正在補換算的花費。快照很密，等匯率時下一個快照又會選到同一筆，避免同一台重複換。
+    @ObservationIgnored private var convertingExpenseIDs: Set<UUID> = []
+    /// 刪除成員時推送失敗（例如離線）的成員 id（帳本 id → 成員 id）。之後每次推送群組都帶上，
+    /// 成功才清掉；不然 mergedMembers 會把遠端還在的成員當成「別台剛加的」保留，刪除就永遠沒送出。
+    /// 只存在記憶體：App 重開前沒推送成功就會遺失。
+    @ObservationIgnored private var pendingRemovedMembers: [UUID: Set<String>] = [:]
+
     private init() {}
 
     /// 執行背景推送；失敗時記下錯誤而不是靜默吞掉。
@@ -241,42 +251,88 @@ final class FirebaseSharingManager {
 
     // MARK: - Sync
 
-    /// 整批推送（雙寫過渡）：僅用於「全部花費都變」的情境（初次分享、換基準幣）。
-    /// 日常單筆編輯請改用 `pushExpense` 以避免併發互蓋。
-    /// 同時寫 group 文件（meta+members+舊 expenses[] 陣列，給舊版 client）與每筆 expenses 子文件。
-    func pushChanges(for group: Group) async throws {
+    /// 換結算幣別後推送：只更新帳本的幣別欄位與每一筆換算過的花費。
+    /// 不整份覆寫帳本文件——那會洗掉別人同時做的成員認領、新成員或舊陣列裡的編輯。
+    /// 一併寫入 `baseCurrencyChangedAt`（伺服器時間），讓離線時記帳的裝置判斷哪些花費要自己補換算。
+    func pushBaseCurrencyChange(for group: Group) async throws {
         guard let firestoreId = group.firestoreGroupId else { return }
+        // 先取出純值再 await（理由同 pushExpense）
+        let baseCode = group.baseCurrencyCode
+        var updates: [String: [String: Any]] = [:]
+        for expense in group.expenses {
+            updates[expense.id.uuidString] = serializeExpense(expense)
+        }
         try await signInAnonymously()
-        guard let userId = currentUserId else { return }
-
-        let data = serializeGroup(group, ownerId: group.firebaseOwnerId ?? userId, inviteCode: group.inviteCode ?? "")
         let groupRef = db.collection("groups").document(firestoreId)
 
-        let batch = db.batch()
-        batch.setData(data, forDocument: groupRef)
-        for expense in group.expenses {
-            let ref = groupRef.collection("expenses").document(expense.id.uuidString)
-            // merge：serializeExpense 不含 isPurged，整包覆蓋會把永久刪除的墓碑洗掉，
-            // 造成別人已永久刪除的花費因為這次推送而全員復活。
-            batch.setData(serializeExpense(expense), forDocument: ref, merge: true)
+        // 花費子集合（權威）：merge 保住 isPurged 墓碑
+        let ids = updates.keys.sorted()
+        let expenseRef = { (id: String) in groupRef.collection("expenses").document(id) }
+
+        // 一個 transaction 最多寫 500 份文件。放得下（幾乎所有帳本）就花費和帳本幣別一起寫，
+        // 要嘛全部成功、要嘛全部沒變，不會出現「花費已是新幣別、帳本還是舊幣別」。
+        let fitsInOneTransaction = ids.count <= Self.maxExpensesPerAtomicBaseChange
+        if !fitsInOneTransaction {
+            // 太多筆只能先分批寫花費，這條路不是原子的：之後帳本那步失敗的話，花費已是新幣別、
+            // 帳本還是舊幣別。帳本以前換過幣別（有 baseCurrencyChangedAt）時，其他裝置的
+            // repairAfterMerge 會把這些花費換回帳本幣別；從沒換過的帳本就只能靠使用者重新換一次。
+            for chunkStart in stride(from: 0, to: ids.count, by: 400) {
+                let batch = db.batch()
+                for id in ids[chunkStart..<min(chunkStart + 400, ids.count)] {
+                    batch.setData(Self.withServerWrittenAt(updates[id]!), forDocument: expenseRef(id), merge: true)
+                }
+                try await batch.commit()
+            }
         }
-        try await batch.commit()
+
+        // 帳本欄位＋舊陣列鏡像：transaction 只替換換算過的那幾筆
+        _ = try await db.runTransaction { (txn, errorPointer) -> Any? in
+            let snap: DocumentSnapshot
+            do {
+                snap = try txn.getDocument(groupRef)
+            } catch {
+                errorPointer?.pointee = error as NSError
+                return nil
+            }
+            guard snap.exists else { return nil }
+            var fields: [String: Any] = [
+                "baseCurrencyCode": baseCode,
+                "baseCurrencyChangedAt": FieldValue.serverTimestamp()
+            ]
+            if let legacy = snap.data()?["expenses"] as? [[String: Any]] {
+                let known = Set(legacy.compactMap { $0["id"] as? String })
+                // 只替換舊陣列原本就有的：子集合時代才新增的花費不必塞回舊陣列
+                fields["expenses"] = SyncRepair.replacingLegacyExpenses(
+                    legacy, with: updates.filter { known.contains($0.key) })
+            }
+            if fitsInOneTransaction {
+                for id in ids {
+                    txn.setData(Self.withServerWrittenAt(updates[id]!), forDocument: expenseRef(id), merge: true)
+                }
+            }
+            txn.updateData(fields, forDocument: groupRef)
+            return nil
+        }
     }
+
+    /// 換幣別時一起放進同一個 transaction 的花費上限（Firestore 一次最多 500 筆寫入，留帳本文件與餘裕）。
+    private static let maxExpensesPerAtomicBaseChange = 450
 
     /// Granular 推送（主要路徑）：只寫「這一筆」花費到子集合（權威、per-doc last-write-wins），
     /// 並用 transaction 把這一筆鏡像回舊 expenses[] 陣列（給尚未升級的舊版 client 讀）。
-    /// 避免 `pushChanges` 每次推全部所造成的併發互蓋。
+    /// 避免每次推全部花費所造成的併發互蓋。
     func pushExpense(_ expense: Expense, in group: Group) async throws {
         guard let firestoreId = group.firestoreGroupId else { return }
-        try await signInAnonymously()
-
+        // 先取出純值再 await：等登入時花費可能被刪，讀已刪除的 SwiftData 模型會閃退
         let expenseId = expense.id.uuidString
         let expenseData = serializeExpense(expense)
+        try await signInAnonymously()
         let groupRef = db.collection("groups").document(firestoreId)
 
         // 1) 子集合文件（權威來源）
-        // merge：保住可能已存在的 isPurged 墓碑（見 pushChanges 的說明）
-        try await groupRef.collection("expenses").document(expenseId).setData(expenseData, merge: true)
+        // merge：保住可能已存在的 isPurged 墓碑（serializeExpense 不含 isPurged，整包覆蓋會讓永久刪除的花費復活）
+        try await groupRef.collection("expenses").document(expenseId)
+            .setData(Self.withServerWrittenAt(expenseData), merge: true)
 
         // 2) 鏡像回舊陣列（最佳努力）：transaction 只替換/插入這一筆，不誤刪其他併發寫入
         _ = try? await db.runTransaction { (txn, errorPointer) -> Any? in
@@ -288,12 +344,10 @@ final class FirebaseSharingManager {
                 return nil
             }
             guard snap.exists else { return nil }
-            var arr = (snap.data()?["expenses"] as? [[String: Any]]) ?? []
-            if let idx = arr.firstIndex(where: { ($0["id"] as? String) == expenseId }) {
-                arr[idx] = expenseData
-            } else {
-                arr.append(expenseData)
-            }
+            let arr = SyncRepair.replacingLegacyExpenses(
+                (snap.data()?["expenses"] as? [[String: Any]]) ?? [],
+                with: [expenseId: expenseData]
+            )
             txn.updateData(["expenses": arr], forDocument: groupRef)
             return nil
         }
@@ -313,7 +367,8 @@ final class FirebaseSharingManager {
             let batch = db.batch()
             for eData in arr {
                 guard let id = eData["id"] as? String else { continue }
-                batch.setData(eData, forDocument: groupRef.collection("expenses").document(id), merge: true)
+                batch.setData(SyncRepair.normalizedAmounts(eData),
+                              forDocument: groupRef.collection("expenses").document(id), merge: true)
             }
             try await batch.commit()
         } catch {
@@ -328,18 +383,23 @@ final class FirebaseSharingManager {
     /// members 是整個陣列覆寫，所以必須在同一個 transaction 裡把遠端既有的 `claimedByUid`
     /// 讀回來合併：本地可能還沒收到別人剛用 transaction 寫下的認領，直接推本地狀態會把它抹掉
     /// （加成員／刪成員撞上別人認領時就會發生），對方下次同步就被要求重新認領，毫無提示。
-    func pushGroupMeta(for group: Group) async throws {
+    /// - Parameter removedMemberIDs: 本機這次刪掉的成員。其他遠端有、本機沒有的成員會保留
+    ///   （別台剛加、本機還沒收到），不然整個陣列寫回會把它們洗掉。
+    func pushGroupMeta(for group: Group, removedMemberIDs: Set<String> = []) async throws {
         guard let firestoreId = group.firestoreGroupId else { return }
-        try await signInAnonymously()
 
-        // SwiftData 模型限定 MainActor，先取出純值再進 transaction 閉包
+        // SwiftData 模型限定 MainActor，先取出純值再 await、再進 transaction 閉包
         let localMembers = group.members.map {
-            (id: $0.id.uuidString, name: $0.name, claim: $0.claimedByUid)
+            SyncRepair.MemberSnapshot(id: $0.id.uuidString, name: $0.name, claim: $0.claimedByUid)
         }
         let name = group.name
         let isSettled = group.isSettled
         let baseCurrencyCode = group.baseCurrencyCode
         let groupRef = db.collection("groups").document(firestoreId)
+        let groupID = group.id
+        try await signInAnonymously()
+        let removedIDs = removedMemberIDs.union(pendingRemovedMembers[groupID] ?? [])
+        if !removedIDs.isEmpty { pendingRemovedMembers[groupID] = removedIDs }
 
         _ = try await db.runTransaction { (txn, errorPointer) -> Any? in
             let snap: DocumentSnapshot
@@ -350,21 +410,11 @@ final class FirebaseSharingManager {
                 return nil
             }
 
-            var remoteClaims: [String: String] = [:]
-            for m in (snap.data()?["members"] as? [[String: Any]]) ?? [] {
-                if let id = m["id"] as? String, let uid = m["claimedByUid"] as? String {
-                    remoteClaims[id] = uid
-                }
-            }
-
-            let members = localMembers.map { member -> [String: Any] in
-                var m: [String: Any] = ["id": member.id, "name": member.name]
-                // 本地認領優先；本地沒有就保留遠端既有的，不以 nil 覆蓋
-                if let uid = member.claim ?? remoteClaims[member.id] {
-                    m["claimedByUid"] = uid
-                }
-                return m
-            }
+            let members = SyncRepair.mergedMembers(
+                local: localMembers,
+                remote: (snap.data()?["members"] as? [[String: Any]]) ?? [],
+                removedIDs: removedIDs
+            )
 
             txn.updateData([
                 "name": name,
@@ -373,6 +423,11 @@ final class FirebaseSharingManager {
                 "members": members
             ], forDocument: groupRef)
             return nil
+        }
+        // 送出成功才清；中間又有新的待刪成員就留著那些
+        if var pending = pendingRemovedMembers[groupID] {
+            pending.subtract(removedIDs)
+            pendingRemovedMembers[groupID] = pending.isEmpty ? nil : pending
         }
     }
 
@@ -457,6 +512,8 @@ final class FirebaseSharingManager {
             )
             mergeExpenses(unified, into: group, modelContext: modelContext)
             try? modelContext.save()
+            repairAfterMerge(group, remoteExpenses: unified, remoteIsComplete: true,
+                             baseChangedAt: Self.baseChangedAt(data))
         }
         await backfillExpensesSubcollectionIfNeeded(for: group)
     }
@@ -490,6 +547,9 @@ final class FirebaseSharingManager {
             )
             self.mergeExpenses(unified, into: group, modelContext: modelContext)
             try? modelContext.save()
+            self.repairAfterMerge(group, remoteExpenses: unified,
+                                  remoteIsComplete: !state.subDocsFromCache,
+                                  baseChangedAt: Self.baseChangedAt(state.groupData))
         }
 
         // Skip local echoes — our own optimistic writes would re-enter merge and
@@ -506,7 +566,12 @@ final class FirebaseSharingManager {
                 guard let snapshot else { return }
                 if snapshot.metadata.hasPendingWrites { return }
                 let docs = snapshot.documents.map { $0.data() }
-                Task { @MainActor in state.subDocs = docs; apply() }
+                let fromCache = snapshot.metadata.isFromCache
+                Task { @MainActor in
+                    state.subDocs = docs
+                    state.subDocsFromCache = fromCache
+                    apply()
+                }
             }
         return SharingSubscription { groupReg.remove(); subReg.remove() }
     }
@@ -517,11 +582,109 @@ final class FirebaseSharingManager {
         Task { @MainActor in DiagnosticLog.shared.record(text) }
     }
 
+    /// 合併完雲端資料後的兩項補救，都在背景推送、失敗記進 pendingSyncError：
+    /// 1. 本機有、雲端完全沒有的花費補傳（例如當初被 rules 擋下的）。
+    /// 2. 別台換了結算幣別、本機離線時在舊幣別下記的花費，換算到新幣別再推送。
+    /// 帳本文件上最近一次換結算幣別的伺服器時間；舊版 client 換的沒有這欄。
+    nonisolated private static func baseChangedAt(_ groupData: [String: Any]?) -> Date? {
+        (groupData?["baseCurrencyChangedAt"] as? Timestamp)?.dateValue()
+    }
+
+    /// - Parameters:
+    ///   - remoteIsComplete: 這批雲端資料是否完整（來自伺服器）。來自快取時可能缺文件，
+    ///     這時不判斷「雲端沒有」，不然會拿本機舊資料蓋掉伺服器上較新的版本。
+    ///   - baseChangedAt: 帳本最近一次換結算幣別的伺服器時間。沒有（舊版 client 換的或從沒換過）
+    ///     就不補換算，寧可不動也不誤換。
+    @MainActor
+    private func repairAfterMerge(_ group: Group, remoteExpenses: [[String: Any]],
+                                  remoteIsComplete: Bool, baseChangedAt: Date?) {
+        guard group.isShared else { return }
+
+        var toRepush: [Expense] = []
+        if remoteIsComplete {
+            let unsynced = SyncRepair.unsyncedExpenseIDs(
+                local: group.expenses.map(\.id), remote: remoteExpenses
+            ).filter { !repushAttempted.contains($0) }
+            repushAttempted.formUnion(unsynced)
+            toRepush = group.expenses.filter { unsynced.contains($0.id) }
+        }
+
+        // 每次合併都依雲端資料重新判斷，換算失敗時下一個快照自然會再試
+        var toConvert: [Expense] = []
+        if let baseChangedAt {
+            let stale = SyncRepair.staleBaseExpenseIDs(
+                remote: remoteExpenses.compactMap { e in
+                    guard let idStr = e["id"] as? String, let id = UUID(uuidString: idStr),
+                          e["isPurged"] as? Bool != true else { return nil }
+                    return .init(id: id,
+                                 base: e["baseCurrencyCode"] as? String,
+                                 serverWrittenAt: (e["serverWrittenAt"] as? Timestamp)?.dateValue())
+                },
+                groupBase: group.baseCurrencyCode,
+                changedAt: baseChangedAt
+            ).subtracting(convertingExpenseIDs)
+            toConvert = group.expenses.filter { stale.contains($0.id) }
+            convertingExpenseIDs.formUnion(toConvert.map(\.id))
+        }
+        // 先取出 id：Task 結束時花費可能已被刪，不能再讀它的屬性
+        let convertIDs = toConvert.map(\.id)
+        let repushIDs = toRepush.map(\.id)
+
+        guard !toRepush.isEmpty || !toConvert.isEmpty else { return }
+        Task { @MainActor in
+            var pushed: Set<UUID> = []
+            defer { self.convertingExpenseIDs.subtract(convertIDs) }
+            for expense in toConvert {
+                // 每筆之間會 await；這段時間花費或整本帳本可能被刪掉。
+                // 讀已刪除的 SwiftData 模型會閃退，所以每次都先確認還在。
+                guard Self.isAlive(group), Self.isAlive(expense) else { continue }
+                let base = group.baseCurrencyCode
+                guard let source = SyncRepair.conversionSource(
+                    expenseBase: expense.baseCurrencyCode,
+                    originalCode: expense.originalCurrencyCode,
+                    groupBase: base
+                ) else { continue } // 已經一致（例如別台換好推過來了），不用再換
+                do {
+                    let rate = try await CurrencyService.shared.fetchLatestRate(from: source, to: base)
+                    // 等匯率時可能被刪掉、被別台改過或帳本又換了幣別；狀態變了就不動，避免蓋掉較新的資料
+                    guard Self.isAlive(group), Self.isAlive(expense),
+                          group.baseCurrencyCode == base,
+                          SyncRepair.conversionSource(
+                              expenseBase: expense.baseCurrencyCode,
+                              originalCode: expense.originalCurrencyCode,
+                              groupBase: base
+                          ) == source
+                    else { continue }
+                    BaseCurrencyConversion.convert(expense, from: source, rate: rate, to: base)
+                    try? group.modelContext?.save()
+                    DiagnosticLog.shared.record("補換算離線花費：\(source) → \(base)")
+                    pushed.insert(expense.id) // 推送會 await，先記 id
+                    await self.pushInBackground { try await self.pushExpense(expense, in: group) }
+                } catch {
+                    // 拿不到匯率：雲端那筆仍是舊幣別，下一次收到快照時會再被選到
+                    DiagnosticLog.shared.record("補換算離線花費失敗（\(source) → \(base)），稍後重試：\(DiagnosticLog.describe(error))")
+                }
+            }
+            // 換算成功的已經推過；沒換成（跳過或失敗）的照樣補傳，至少讓別人看得到這筆
+            for (expense, id) in zip(toRepush, repushIDs) where !pushed.contains(id) {
+                guard Self.isAlive(group), Self.isAlive(expense) else { continue }
+                DiagnosticLog.shared.record("補傳雲端沒有的花費")
+                await self.pushInBackground { try await self.pushExpense(expense, in: group) }
+            }
+        }
+    }
+
+    /// SwiftData 模型還沒被刪除。已刪除的模型讀屬性會閃退，跨 await 之後要先檢查。
+    private static func isAlive(_ model: some PersistentModel) -> Bool {
+        model.modelContext != nil && !model.isDeleted
+    }
+
     /// 合併 group 文件層級資料：名稱、結算狀態、基準幣、成員。（expenses 改由 mergeExpenses 處理）
     @MainActor
     private func mergeGroupMeta(_ data: [String: Any], into group: Group, modelContext: ModelContext) {
         group.name = data["name"] as? String ?? group.name
         group.isSettled = data["isSettled"] as? Bool ?? group.isSettled
+        // 離線花費的補換算改在 repairAfterMerge 依雲端資料判斷，這裡只更新幣別
         if let remoteBase = data["baseCurrencyCode"] as? String, group.baseCurrencyCode != remoteBase {
             group.baseCurrencyCode = remoteBase
         }
@@ -645,6 +808,8 @@ final class FirebaseSharingManager {
                     if existing.updatedAt != newUpdatedAt { existing.updatedAt = newUpdatedAt }
                     let newEditor = eData["lastEditorName"] as? String
                     if existing.lastEditorName != newEditor { existing.lastEditorName = newEditor }
+                    let newBase = eData["baseCurrencyCode"] as? String
+                    if existing.baseCurrencyCode != newBase { existing.baseCurrencyCode = newBase }
 
                     // Only rebuild splits if they actually differ (avoids expensive churn)
                     if !splitsMatch(existing: existing.splits, remote: eData["splits"] as? [[String: Any]] ?? []) {
@@ -669,6 +834,7 @@ final class FirebaseSharingManager {
                     expense.isEvenSplit = eData["isEvenSplit"] as? Bool
                     if let ua = eData["updatedAt"] as? Timestamp { expense.updatedAt = ua.dateValue() }
                     expense.lastEditorName = eData["lastEditorName"] as? String
+                    expense.baseCurrencyCode = eData["baseCurrencyCode"] as? String
                     modelContext.insert(expense)
                     group.expenses.append(expense)
                     appendSplits(from: eData, to: expense, memberMap: memberMap, modelContext: modelContext)
@@ -836,6 +1002,15 @@ final class FirebaseSharingManager {
         return data
     }
 
+    /// 子集合文件加上伺服器寫入時間（離線排隊的寫入，時間是真正送達伺服器的那一刻）。
+    /// 用來判斷花費是不是在換結算幣別之後才上傳的，見 `SyncRepair.staleBaseExpenseIDs`。
+    /// 只加在子集合：舊 expenses[] 陣列的元素裡不能放 serverTimestamp。
+    nonisolated private static func withServerWrittenAt(_ data: [String: Any]) -> [String: Any] {
+        var data = data
+        data["serverWrittenAt"] = FieldValue.serverTimestamp()
+        return data
+    }
+
     /// 單筆花費序列化。子集合文件 `groups/{id}/expenses/{eid}` 與舊 `expenses[]` 陣列元素
     /// 共用同一結構（雙寫過渡期兩處皆寫）。
     private func serializeExpense(_ expense: Expense) -> [String: Any] {
@@ -856,6 +1031,7 @@ final class FirebaseSharingManager {
         if let ev = expense.isEvenSplit { eDict["isEvenSplit"] = ev }
         if let ua = expense.updatedAt { eDict["updatedAt"] = Timestamp(date: ua) }
         if let ed = expense.lastEditorName { eDict["lastEditorName"] = ed }
+        if let base = expense.baseCurrencyCode { eDict["baseCurrencyCode"] = base }
         eDict["splits"] = expense.splits.map { split in
             [
                 "id": split.id.uuidString,
@@ -944,6 +1120,8 @@ final class FirebaseSharingManager {
 final class SyncState {
     var groupData: [String: Any]?
     var subDocs: [[String: Any]]?
+    /// 花費快照是否來自本機快取。快取可能只有部分文件，不能拿來判斷「雲端沒有這筆」。
+    var subDocsFromCache = true
 }
 
 final class SharingSubscription {

@@ -4,6 +4,9 @@ import SwiftUI
 struct CurrencyPickerView: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selection: String
+    /// 記花費的選單才寫入「最近使用」；建帳本、換結算幣別、預設幣別不算，
+    /// 不然偶爾設一次結算幣別就會把旅行中常用的當地幣擠掉。
+    var recordsRecent: Bool = false
     @State private var searchText = ""
     // 開啟時讀一次就好；選完就關掉，不需要即時更新
     @State private var recentCodes = RecentCurrencies.list()
@@ -61,10 +64,15 @@ struct CurrencyPickerView: View {
         selection.wrappedValue = code
     }
 
+    static func recordIfNeeded(_ code: String, recordsRecent: Bool, defaults: UserDefaults = .standard) {
+        guard recordsRecent else { return }
+        RecentCurrencies.record(code, defaults: defaults)
+    }
+
     private func row(_ code: String) -> some View {
         Button {
             Self.select(code, into: $selection)
-            RecentCurrencies.record(code)
+            Self.recordIfNeeded(code, recordsRecent: recordsRecent)
             dismiss()
         } label: {
             HStack(spacing: 12) {

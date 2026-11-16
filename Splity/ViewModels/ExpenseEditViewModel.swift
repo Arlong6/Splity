@@ -342,6 +342,7 @@ final class ExpenseEditViewModel {
         }
         savedExpense.isEvenSplit = isEvenSplit
         savedExpense.updatedAt = Date()
+        savedExpense.baseCurrencyCode = group.baseCurrencyCode
         savedExpense.lastEditorName = FirebaseSharingManager.shared.claimedMember(in: group)?.name
 
         do {

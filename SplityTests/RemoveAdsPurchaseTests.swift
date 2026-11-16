@@ -7,7 +7,7 @@ import StoreKitTest
 /// 用 StoreKitTest 在本機跑完整的買斷流程：購買 → 生效 → 還原 → 退款 → 家長核准（Ask to Buy）。
 /// 讀的是 repo 根目錄的 `Splity.storekit`，不需要加進 target 資源。
 /// SKTestSession 是全域狀態，所以整組必須循序執行。
-@Suite("移除廣告買斷流程", .serialized)
+@Suite("移除廣告買斷流程", .serialized, .timeLimit(.minutes(1)))
 @MainActor
 struct RemoveAdsPurchaseTests {
     private let session: SKTestSession
