@@ -20,3 +20,20 @@ Screenshots/
 
 # Python
 __pycache__/
+*.py[cod]
+
+# Secrets — App Store Connect API key, signing certs/profiles, env files
+.env
+.env.*
+*.p8
+*.pem
+*.p12
+*.cer
+*.mobileprovision
+*-firebase-adminsdk-*.json
+*service-account*.json
+serviceAccount*.json
+
+# Exported app archives
+*.ipa
+*.xcarchive/
