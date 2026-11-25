@@ -13,6 +13,7 @@ private func makeCategoryContainer() throws -> ModelContainer {
 
 // MARK: - 分類清單與關鍵字猜測
 
+@MainActor
 struct ExpenseCategoryTests {
 
     @Test("常見中英文品項猜得出分類")
@@ -86,6 +87,7 @@ struct ExpenseCategoryTests {
 
 // MARK: - 記帳表單的分類狀態
 
+@MainActor
 struct ExpenseEditCategoryTests {
 
     private func makeGroup(_ ctx: ModelContext) -> (Group, Member, Member) {
@@ -218,6 +220,7 @@ struct ExpenseCategoryCodingTests {
 
 // MARK: - 統計加總
 
+@MainActor
 struct CategoryStatsTests {
 
     private func expense(_ title: String, _ amount: Decimal, _ category: String?,
