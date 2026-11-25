@@ -76,6 +76,23 @@ struct SupportMailTests {
         #expect(!without.contains("最近操作紀錄"))
     }
 
+    @Test("可以帶自訂主旨，含 & 也不會切斷")
+    func customSubject() throws {
+        let url = try #require(SupportMail.url(body: "", subject: "Splity 分類建議", diagnostics: diagnostics))
+        #expect(queryValue(url, "subject") == "Splity 分類建議")
+        let messy = try #require(SupportMail.url(body: "x", subject: "A & B #1", diagnostics: diagnostics))
+        #expect(queryValue(messy, "subject") == "A & B #1")
+        #expect(queryValue(messy, "body")?.hasPrefix("x") == true)
+    }
+
+    @Test("不帶主旨時維持原本的問題回報主旨")
+    func defaultSubjectUnchanged() throws {
+        let plain = try #require(SupportMail.url(body: "x", diagnostics: diagnostics))
+        let explicitNil = try #require(SupportMail.url(body: "x", subject: nil, diagnostics: diagnostics))
+        #expect(queryValue(plain, "subject") == queryValue(explicitNil, "subject"))
+        #expect(queryValue(plain, "subject")?.contains("1.8.2 (18)") == true)
+    }
+
     /// mailto 的 query 由 URLComponents 解析，值本身已經解過碼。
     private func queryValue(_ url: URL, _ name: String) -> String? {
         URLComponents(url: url, resolvingAgainstBaseURL: false)?
