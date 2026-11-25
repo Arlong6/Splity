@@ -39,6 +39,9 @@ final class Expense {
     /// 存下這筆時帳本的結算幣別（totalAmount 與 splits 的幣別）。nil＝舊資料未記錄。
     /// 離線記帳時別人可能已換了結算幣別，同步時靠它發現並補換算。
     var baseCurrencyCode: String? = nil
+    /// 分類代碼（`ExpenseCategory.rawValue`）。nil＝沒分類（舊資料或使用者選「未分類」）。
+    /// 用字串而不是 enum：未來版本新增的代碼被這版讀到時要能原樣保留、不被洗掉。
+    var category: String? = nil
 
     var isForeignCurrency: Bool { originalCurrencyCode != nil }
 
