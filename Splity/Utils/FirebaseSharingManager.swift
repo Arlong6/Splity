@@ -810,6 +810,8 @@ final class FirebaseSharingManager {
                     if existing.lastEditorName != newEditor { existing.lastEditorName = newEditor }
                     let newBase = eData["baseCurrencyCode"] as? String
                     if existing.baseCurrencyCode != newBase { existing.baseCurrencyCode = newBase }
+                    let newCategory = ExpenseCategoryCoding.decode(eData[ExpenseCategoryCoding.key])
+                    if existing.category != newCategory { existing.category = newCategory }
 
                     // Only rebuild splits if they actually differ (avoids expensive churn)
                     if !splitsMatch(existing: existing.splits, remote: eData["splits"] as? [[String: Any]] ?? []) {
@@ -835,6 +837,7 @@ final class FirebaseSharingManager {
                     if let ua = eData["updatedAt"] as? Timestamp { expense.updatedAt = ua.dateValue() }
                     expense.lastEditorName = eData["lastEditorName"] as? String
                     expense.baseCurrencyCode = eData["baseCurrencyCode"] as? String
+                    expense.category = ExpenseCategoryCoding.decode(eData[ExpenseCategoryCoding.key])
                     modelContext.insert(expense)
                     group.expenses.append(expense)
                     appendSplits(from: eData, to: expense, memberMap: memberMap, modelContext: modelContext)
@@ -1032,6 +1035,8 @@ final class FirebaseSharingManager {
         if let ua = expense.updatedAt { eDict["updatedAt"] = Timestamp(date: ua) }
         if let ed = expense.lastEditorName { eDict["lastEditorName"] = ed }
         if let base = expense.baseCurrencyCode { eDict["baseCurrencyCode"] = base }
+        // 一律寫（nil 寫 NSNull），改回未分類才同步得出去。見 ExpenseCategoryCoding。
+        eDict[ExpenseCategoryCoding.key] = ExpenseCategoryCoding.encode(expense.category)
         eDict["splits"] = expense.splits.map { split in
             [
                 "id": split.id.uuidString,
@@ -1092,6 +1097,7 @@ final class FirebaseSharingManager {
                 expense.isEvenSplit = eData["isEvenSplit"] as? Bool
                 if let ua = eData["updatedAt"] as? Timestamp { expense.updatedAt = ua.dateValue() }
                 expense.lastEditorName = eData["lastEditorName"] as? String
+                expense.category = ExpenseCategoryCoding.decode(eData[ExpenseCategoryCoding.key])
 
                 if let splitsData = eData["splits"] as? [[String: Any]] {
                     for sData in splitsData {
