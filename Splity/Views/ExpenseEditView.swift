@@ -33,6 +33,18 @@ struct ExpenseEditView: View {
             Section("基本資訊") {
                 TextField("品項名稱", text: $viewModel.title)
 
+                Picker("分類", selection: Binding(
+                    get: { viewModel.category },
+                    set: { viewModel.userPicked($0) }
+                )) {
+                    Text(ExpenseCategory.uncategorizedName).tag(ExpenseCategory?.none)
+                    ForEach(ExpenseCategory.allCases) { category in
+                        Label(category.displayName, systemImage: category.symbolName)
+                            .tag(Optional(category))
+                    }
+                }
+                .accessibilityIdentifier("categoryPicker")
+
                 HStack {
                     Button {
                         showingCurrencyPicker = true
@@ -249,6 +261,9 @@ struct ExpenseEditView: View {
             if viewModel.isForeign && viewModel.lockedRate == nil {
                 await viewModel.refreshExchangeRate()
             }
+        }
+        .onChange(of: viewModel.title) { _, _ in
+            viewModel.titleDidChange()
         }
         .onChange(of: viewModel.isEvenSplit) { _, even in
             DiagnosticLog.shared.record(even ? "切換為平均分帳" : "切換為自訂分帳")

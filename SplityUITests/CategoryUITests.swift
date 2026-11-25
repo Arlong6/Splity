@@ -43,23 +43,44 @@ final class CategoryUITests: XCTestCase {
 
         let picker = app.descendants(matching: .any)["categoryPicker"].firstMatch
         XCTAssertTrue(picker.waitForExistence(timeout: UITestTimeout.appear))
-        XCTAssertTrue(picker.label.contains(c.uncategorized), "還沒填名稱時應是未分類，實際：\(picker.label)")
+        XCTAssertTrue(pickerText(picker).contains(c.uncategorized), "還沒填名稱時應是未分類，實際：\(pickerText(picker))")
 
-        app.textFields[c.itemName].focusAndType("\(c.title)\n", c.itemName)
-        XCTAssertTrue(picker.label.contains(c.transport), "輸入「\(c.title)」後應自動選交通，實際：\(picker.label)")
+        // 表單剛滑上來時打字可能落空（焦點到了、字卻沒進去），確認欄位真的有字再往下
+        let nameField = app.textFields[c.itemName].firstMatch
+        XCTAssertTrue(nameField.waitForExistence(timeout: UITestTimeout.appear))
+        for _ in 0..<3 where (nameField.value as? String) != c.title {
+            nameField.focusAndType(c.title, c.itemName)
+            _ = nameField.waitForExistence(timeout: 1)
+        }
+        XCTAssertEqual(nameField.value as? String, c.title, "品項名稱沒有打進去")
+        nameField.typeText("\n")
+        // 選到有圖示的分類後，選單的值不一定還在 label／value 裡，改找畫面上的文字
+        XCTAssertTrue(element(app, containing: c.transport).waitForExistence(timeout: UITestTimeout.appear),
+                      "輸入「\(c.title)」後應自動選交通")
         app.textFields[c.amount].firstMatch.focusAndType("300", c.amount)
         shot("\(c.language)-01-edit-auto-category")
 
         let save = app.buttons[c.save].firstMatch
         XCTAssertTrue(save.isEnabled)
         save.tap()
+        XCTAssertTrue(save.waitForNonExistence(timeout: UITestTimeout.disappear))
 
+        // 統計入口在花費紀錄區最上方，8 位成員下面；List 只放畫面內的列，要捲下去
         let statsButton = app.buttons["categoryStatsButton"].firstMatch
-        XCTAssertTrue(statsButton.waitForExistence(timeout: UITestTimeout.appear))
-        XCTAssertTrue(app.staticTexts[c.title].exists)
-        XCTAssertTrue(app.images[c.transport].exists, "列表上新花費前應有交通圖示（無障礙標籤為分類名）")
+        for _ in 0..<6 where !(statsButton.exists && statsButton.isHittable) {
+            app.swipeUp()
+        }
+        XCTAssertTrue(statsButton.waitForExistence(timeout: UITestTimeout.appear), "找不到分類統計入口")
+        // 入口剛露出來時，下面的花費列還在畫面外，再捲一次
+        app.swipeUp()
         shot("\(c.language)-02-list-with-icon")
+        // 花費列整列是一個可點元素，文字與圖示的無障礙標籤（分類名）合在它的 label 裡
+        let row = app.descendants(matching: .any).matching(NSPredicate(
+            format: "label CONTAINS %@ AND label CONTAINS %@", c.title, c.transport)).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: UITestTimeout.appear) || app.images[c.transport].exists,
+                      "列表上新花費應帶交通圖示（無障礙標籤為分類名）")
 
+        for _ in 0..<3 where !statsButton.isHittable { app.swipeDown() }
         statsButton.tap()
         XCTAssertTrue(app.navigationBars[c.stats].waitForExistence(timeout: UITestTimeout.appear))
         // 統計清單每列合併成一個無障礙元素（「交通, NT$300, 27%」），用包含比對
@@ -69,8 +90,14 @@ final class CategoryUITests: XCTestCase {
         shot("\(c.language)-03-stats")
     }
 
+    /// 選單的標題在 label、目前選的值在 value（依系統版本可能合在 label 裡），兩個一起看。
+    private func pickerText(_ picker: XCUIElement) -> String {
+        "\(picker.label) \((picker.value as? String) ?? "")"
+    }
+
     private func element(_ app: XCUIApplication, containing text: String) -> XCUIElement {
-        app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
+        app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", text, text)).firstMatch
     }
 
     private func shot(_ name: String) {

@@ -10,6 +10,7 @@ struct GroupDetailView: View {
     @State private var showingAddExpense = false
     @State private var showingSettlement = false
     @State private var showingSpreadsheet = false
+    @State private var showingStats = false
     @State private var showingShareSheet = false
     @State private var inviteCode: String?
     @State private var isShareLoading = false
@@ -168,6 +169,18 @@ struct GroupDetailView: View {
                 Text("沒有符合的花費")
                     .foregroundStyle(.secondary)
             } else {
+                if !CategoryStats.totals(for: group.expenses).isEmpty {
+                    Button { showingStats = true } label: {
+                        HStack {
+                            Label("分類統計", systemImage: "chart.pie.fill")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    .accessibilityIdentifier("categoryStatsButton")
+                }
                 ForEach(sortedExpenses) { expense in
                     expenseRow(expense)
                 }
@@ -256,6 +269,7 @@ struct GroupDetailView: View {
             showingAddExpense: $showingAddExpense,
             showingSettlement: $showingSettlement,
             showingSpreadsheet: $showingSpreadsheet,
+            showingStats: $showingStats,
             showingShareSheet: $showingShareSheet,
             showingActivityLog: $showingActivityLog,
             showingClaimPicker: $showingClaimPicker,
@@ -571,6 +585,13 @@ struct ExpenseRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
+                if let category = expense.displayCategory {
+                    Image(systemName: category.symbolName)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 22)
+                        .accessibilityLabel(category.displayName)
+                }
                 Text(expense.title)
                     .font(.headline)
                 Spacer()
@@ -629,6 +650,7 @@ private struct GroupDetailSheets: ViewModifier {
     @Binding var showingAddExpense: Bool
     @Binding var showingSettlement: Bool
     @Binding var showingSpreadsheet: Bool
+    @Binding var showingStats: Bool
     @Binding var showingShareSheet: Bool
     @Binding var showingActivityLog: Bool
     @Binding var showingClaimPicker: Bool
@@ -661,6 +683,9 @@ private struct GroupDetailSheets: ViewModifier {
             .sheet(isPresented: $showingSpreadsheet) {
                 NavigationStack { ExpenseSpreadsheetView(group: group) }
                     .environment(sharingManager)
+            }
+            .sheet(isPresented: $showingStats) {
+                NavigationStack { CategoryStatsView(group: group) }
             }
             .sheet(isPresented: $showingShareSheet) {
                 // 以 group.inviteCode 優先：重新產生後 @Model 會直接把新碼推回這個 sheet。

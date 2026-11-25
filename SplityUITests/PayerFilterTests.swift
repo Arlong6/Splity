@@ -23,6 +23,9 @@ final class PayerFilterTests: XCTestCase {
         // iOS 26 的 Menu 不一定是 .button 類型，不限定類型找
         let filter = app.descendants(matching: .any)["payerFilter"].firstMatch
         XCTAssertTrue(filter.waitForExistence(timeout: 10))
+        // 花費紀錄區上方有 8 位成員，加上「分類統計」列後最新的花費會落到畫面外，先捲上來
+        app.swipeUp()
+        XCTAssertTrue(filter.isHittable, "捲動後篩選選單應該仍在畫面上")
         XCTAssertTrue(filter.label.contains("全部"), "預設應該是全選，實際：\(filter.label)")
         XCTAssertTrue(app.staticTexts["花費6"].exists)
         XCTAssertTrue(totalText(app, contains: "810").exists)

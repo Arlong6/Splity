@@ -313,6 +313,22 @@
         }
       }
     },
+    "Splity 分類建議": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Splity category suggestion"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Splity 分類建議"
+          }
+        }
+      }
+    },
     "Splity 問題回報 %@": {
       "extractionState": "manual",
       "localizations": {
@@ -582,6 +598,22 @@
         }
       }
     },
+    "交通": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transport"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "交通"
+          }
+        }
+      }
+    },
     "付款人：%lld 人": {
       "localizations": {
         "en": {
@@ -660,6 +692,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "以新的身份加入"
+          }
+        }
+      }
+    },
+    "住宿": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lodging"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "住宿"
           }
         }
       }
@@ -1150,6 +1198,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "分帳明細"
+          }
+        }
+      }
+    },
+    "分類": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Category"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分類"
+          }
+        }
+      }
+    },
+    "分類不合用？告訴我們": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Categories not working for you? Tell us"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分類不合用？告訴我們"
+          }
+        }
+      }
+    },
+    "分類統計": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Category Breakdown"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分類統計"
           }
         }
       }
@@ -2674,6 +2770,22 @@
         }
       }
     },
+    "日用品": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daily Needs"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日用品"
+          }
+        }
+      }
+    },
     "更多選項": {
       "localizations": {
         "en": {
@@ -2817,6 +2929,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "有新版本可用"
+          }
+        }
+      }
+    },
+    "未分類": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uncategorized"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未分類"
           }
         }
       }
@@ -3551,6 +3679,22 @@
         }
       }
     },
+    "總計": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "總計"
+          }
+        }
+      }
+    },
     "總額": {
       "localizations": {
         "en": {
@@ -3927,6 +4071,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "資料不完整，請確認所有欄位已填寫"
+          }
+        }
+      }
+    },
+    "購物": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shopping"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購物"
           }
         }
       }
@@ -4455,6 +4615,22 @@
         }
       }
     },
+    "還沒有可以統計的花費": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No expenses to break down yet"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "還沒有可以統計的花費"
+          }
+        }
+      }
+    },
     "還沒有帳本": {
       "localizations": {
         "en": {
@@ -4582,6 +4758,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "錯誤"
+          }
+        }
+      }
+    },
+    "門票娛樂": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tickets & Fun"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "門票娛樂"
           }
         }
       }
@@ -4786,6 +4978,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "預設幣種改回跟隨結算"
+          }
+        }
+      }
+    },
+    "餐飲": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Food & Drink"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "餐飲"
           }
         }
       }
