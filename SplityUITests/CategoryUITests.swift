@@ -77,8 +77,8 @@ final class CategoryUITests: XCTestCase {
         // 花費列整列是一個可點元素，文字與圖示的無障礙標籤（分類名）合在它的 label 裡
         let row = app.descendants(matching: .any).matching(NSPredicate(
             format: "label CONTAINS %@ AND label CONTAINS %@", c.title, c.transport)).firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: UITestTimeout.appear) || app.images[c.transport].exists,
-                      "列表上新花費應帶交通圖示（無障礙標籤為分類名）")
+        XCTAssertTrue(row.waitForExistence(timeout: UITestTimeout.appear),
+                      "列表上新花費那一列應帶交通圖示（無障礙標籤為分類名）")
 
         for _ in 0..<3 where !statsButton.isHittable { app.swipeDown() }
         statsButton.tap()

@@ -51,6 +51,16 @@ struct ExpenseCategoryTests {
         #expect(CategoryGuesser.guess(title: "停車場") == .transport)
     }
 
+    @Test("交通票券與外送不被較短的通用詞搶走")
+    func specificPhrasesWin() {
+        // ticket（6 字）比 train／metro（5 字）長，沒有詞組時會被當成門票娛樂
+        #expect(CategoryGuesser.guess(title: "train ticket") == .transport)
+        #expect(CategoryGuesser.guess(title: "Metro Ticket") == .transport)
+        // Uber Eats 是外送餐點，不是叫車
+        #expect(CategoryGuesser.guess(title: "Uber Eats") == .food)
+        #expect(CategoryGuesser.guess(title: "Uber") == .transport)
+    }
+
     @Test("短英文字不會在別的單字裡誤中")
     func noFalseHitsInsideWords() {
         // dinner 裡有 inn、business 裡有 bus，都不該被當成住宿或交通
@@ -200,6 +210,19 @@ struct ExpenseEditCategoryTests {
 
 struct ExpenseCategoryCodingTests {
 
+    /// 上傳的字典一定要有 category 欄位（沒分類寫 NSNull）；只在有值時才寫，
+    /// 改回未分類就同步不出去（merge 寫入不會清掉雲端舊值）。
+    @Test("上傳的花費資料一定帶 category，沒分類時是 NSNull")
+    @MainActor
+    func serializedExpenseAlwaysHasCategory() {
+        let e = Expense(title: "x", totalAmount: 1, paidBy: nil)
+        let empty = FirebaseSharingManager.shared.serializeExpense(e)
+        #expect(empty.keys.contains("category"))
+        #expect(empty["category"] is NSNull)
+        e.category = "food"
+        #expect(FirebaseSharingManager.shared.serializeExpense(e)["category"] as? String == "food")
+    }
+
     @Test("nil 寫成 NSNull，有值寫字串")
     func nilEncodesAsNull() {
         #expect(ExpenseCategoryCoding.encode(nil) is NSNull)
@@ -261,6 +284,13 @@ struct CategoryStatsTests {
     func usesGuessForNil() {
         let totals = CategoryStats.totals(for: [expense("飯店", 500, nil)])
         #expect(totals.map(\.category) == [.lodging])
+    }
+
+    @Test("入口用的快速判斷與 totals 是否為空一致")
+    func hasStatsMatchesTotals() {
+        #expect(!CategoryStats.hasStats(for: []))
+        #expect(!CategoryStats.hasStats(for: [expense("x", 100, "food", archived: true), expense("y", 0, nil)]))
+        #expect(CategoryStats.hasStats(for: [expense("asdf", 5, nil)]))
     }
 
     @Test("只有已刪除或金額 0 的花費時是空的")
