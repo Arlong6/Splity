@@ -57,7 +57,8 @@ enum SupportMail {
     /// 用 `URLComponents` 而不是自己串字串：內文會包含換行、`&`、`#`，手動組會在第一個
     /// `&` 就把 query 切斷，使用者拿到的信會只剩半截。
     /// `activityLog` 是 `DiagnosticLog` 的「最近操作紀錄」區塊，空字串就不附。
-    static func url(body: String, diagnostics: Diagnostics = .current(),
+    /// `subject` 不給時用「Splity 問題回報 版本」；分類建議等其他用途可以自訂。
+    static func url(body: String, subject: String? = nil, diagnostics: Diagnostics = .current(),
                     activityLog: String = DiagnosticLog.shared.reportSection()) -> URL? {
         var footer = """
 
@@ -75,7 +76,8 @@ enum SupportMail {
         components.scheme = "mailto"
         components.path = address
         components.queryItems = [
-            URLQueryItem(name: "subject", value: localized("Splity 問題回報 \(versionLine(diagnostics))")),
+            URLQueryItem(name: "subject",
+                         value: subject ?? localized("Splity 問題回報 \(versionLine(diagnostics))")),
             URLQueryItem(name: "body", value: body + footer),
         ]
         return components.url
