@@ -15,6 +15,16 @@ final class ExpenseEditViewModel {
     var hasDate = false
     var note = ""
 
+    /// 表單上目前的分類（nil＝未分類）。畫面改值請走 `userPicked(_:)`，才會停止自動猜。
+    var category: ExpenseCategory?
+    /// 還在依品項名稱自動猜嗎：新增花費、或編輯沒分類的舊花費，且使用者還沒手動選過。
+    @ObservationIgnored
+    private var autoGuessCategory = true
+    /// 既有花費存的是這版不認得的代碼（未來版本新增的分類）時記在這裡，
+    /// 使用者沒改分類就原樣寫回，不要被洗成「其他」。
+    @ObservationIgnored
+    private var preservedCategoryCode: String?
+
     // 幣別 / 匯率（金額一律以「使用者輸入幣別」表示，存檔前再換算）
     var selectedCurrencyCode: String
     /// 自動由 Frankfurter 抓 5 日最低匯率，不開放使用者編輯。
@@ -183,6 +193,18 @@ final class ExpenseEditViewModel {
                 hasDate = true
             }
             note = expense.note ?? ""
+            if let code = expense.category {
+                autoGuessCategory = false
+                if let known = ExpenseCategory(rawValue: code) {
+                    category = known
+                } else {
+                    category = .other
+                    preservedCategoryCode = code
+                }
+            } else {
+                // 舊花費沒分類：先填猜測，按儲存才會真的存下來
+                category = CategoryGuesser.guess(title: expense.title)
+            }
 
             // 既有 splits 是基準幣；若是外幣花費需要除以匯率把 customAmounts 還原成原幣
             let restoreRate: Decimal = expense.isForeignCurrency ? (expense.exchangeRate ?? 1) : 1
@@ -222,6 +244,19 @@ final class ExpenseEditViewModel {
             }
             selectedPayer = FirebaseSharingManager.shared.claimedMember(in: group) ?? group.members.first
         }
+    }
+
+    /// 使用者在選單上選了分類（含「未分類」）。之後改品項名稱不再自動猜。
+    func userPicked(_ category: ExpenseCategory?) {
+        self.category = category
+        autoGuessCategory = false
+        preservedCategoryCode = nil
+    }
+
+    /// 品項名稱變了：還在自動猜就重猜一次。
+    func titleDidChange() {
+        guard autoGuessCategory else { return }
+        category = CategoryGuesser.guess(title: title)
     }
 
     func toggleMember(_ member: Member) {
@@ -341,6 +376,7 @@ final class ExpenseEditViewModel {
             savedExpense = expense
         }
         savedExpense.isEvenSplit = isEvenSplit
+        savedExpense.category = preservedCategoryCode ?? category?.rawValue
         savedExpense.updatedAt = Date()
         savedExpense.baseCurrencyCode = group.baseCurrencyCode
         savedExpense.lastEditorName = FirebaseSharingManager.shared.claimedMember(in: group)?.name
