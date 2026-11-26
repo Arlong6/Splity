@@ -37,6 +37,7 @@ enum CategoryGuesser {
             "飲料", "手搖", "奶茶", "酒", "啤酒", "居酒屋", "吃",
             "food", "breakfast", "brunch", "lunch", "dinner", "supper", "restaurant", "meal",
             "coffee", "cafe", "starbucks", "drinks", "beer", "pizza", "burger", "sushi", "ramen", "snack",
+            "uber eats", "foodpanda", "外送",
         ],
         .transport: [
             "加油", "油錢", "油資", "油費", "中油", "台塑", "停車", "過路費", "etag", "高鐵", "台鐵",
@@ -44,7 +45,7 @@ enum CategoryGuesser {
             "渡輪", "船票", "交通",
             "uber", "taxi", "lyft", "grab", "train", "flight", "airfare", "parking", "toll",
             "fuel", "gasoline", "petrol", "gas station", "metro", "subway", "car rental", "ferry",
-            "bus ticket", "transport",
+            "bus ticket", "train ticket", "metro ticket", "transport",
         ],
         .lodging: [
             "飯店", "酒店", "旅館", "旅店", "民宿", "住宿", "青旅", "渡假村", "度假村", "露營",

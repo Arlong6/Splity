@@ -1016,7 +1016,8 @@ final class FirebaseSharingManager {
 
     /// 單筆花費序列化。子集合文件 `groups/{id}/expenses/{eid}` 與舊 `expenses[]` 陣列元素
     /// 共用同一結構（雙寫過渡期兩處皆寫）。
-    private func serializeExpense(_ expense: Expense) -> [String: Any] {
+    /// internal 只為了測試（確認一定帶 category 欄位）。
+    func serializeExpense(_ expense: Expense) -> [String: Any] {
         var eDict: [String: Any] = [
             "id": expense.id.uuidString,
             "title": expense.title,

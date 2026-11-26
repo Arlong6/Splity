@@ -39,6 +39,12 @@ enum CategoryStats {
         }
     }
 
+    /// 統計畫面有沒有東西可顯示，等同 `!totals(for:).isEmpty`，但不必逐筆猜分類。
+    /// 帳本頁每次重畫都會問，大帳本要便宜。
+    static func hasStats(for expenses: [Expense]) -> Bool {
+        expenses.contains { !$0.archived && $0.totalAmount > 0 }
+    }
+
     static func grandTotal(_ totals: [CategoryTotal]) -> Decimal {
         totals.reduce(Decimal(0)) { $0 + $1.amount }
     }

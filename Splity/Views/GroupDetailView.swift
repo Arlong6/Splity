@@ -169,7 +169,7 @@ struct GroupDetailView: View {
                 Text("沒有符合的花費")
                     .foregroundStyle(.secondary)
             } else {
-                if !CategoryStats.totals(for: group.expenses).isEmpty {
+                if CategoryStats.hasStats(for: group.expenses) {
                     Button { showingStats = true } label: {
                         HStack {
                             Label("分類統計", systemImage: "chart.pie.fill")
