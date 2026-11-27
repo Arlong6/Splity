@@ -83,6 +83,13 @@ struct ExpenseCategoryTests {
         #expect(e.category == nil)
     }
 
+    @Test("明確選了未分類（存 \"none\"）就不再猜，即使名稱猜得出來")
+    func explicitUncategorizedIsNotGuessed() {
+        let e = Expense(title: "加油", totalAmount: 1, paidBy: nil)
+        e.category = "none"
+        #expect(e.displayCategory == nil)
+    }
+
     @Test("每個分類都有名稱與圖示，代碼固定")
     func codesAndNames() {
         #expect(ExpenseCategory.allCases.map(\.rawValue)
@@ -174,7 +181,7 @@ struct ExpenseEditCategoryTests {
         #expect(e.category == nil)
     }
 
-    @Test("存檔會寫入分類，選未分類存成 nil")
+    @Test("存檔會寫入分類，選未分類存成 none")
     func savePersistsCategory() throws {
         let ctx = ModelContext(try makeCategoryContainer())
         let (group, a, _) = makeGroup(ctx)
@@ -189,6 +196,34 @@ struct ExpenseEditCategoryTests {
         let vm2 = ExpenseEditViewModel(group: group, expense: saved)
         vm2.userPicked(nil)
         #expect(vm2.save(modelContext: ctx) == nil)
+        // 存成明確的「未分類」，不是 nil：nil 會被當成沒設過而再猜回交通
+        #expect(saved.category == "none")
+        #expect(saved.displayCategory == nil)
+    }
+
+    @Test("再次編輯明確未分類的花費：表單是未分類、改名稱不猜、存檔仍是 none")
+    func explicitUncategorizedSurvivesEdit() throws {
+        let ctx = ModelContext(try makeCategoryContainer())
+        let (group, a, _) = makeGroup(ctx)
+        let e = makeExisting(ctx, title: "加油", category: "none", payer: a, group: group)
+        let vm = ExpenseEditViewModel(group: group, expense: e)
+        #expect(vm.category == nil)
+        vm.title = "高鐵"; vm.titleDidChange()
+        #expect(vm.category == nil)
+        #expect(vm.save(modelContext: ctx) == nil)
+        #expect(e.category == "none")
+    }
+
+    @Test("沒碰過分類、名稱也猜不到的新花費存成 nil，之後清單擴充還能猜到")
+    func untouchedUnguessableStaysNil() throws {
+        let ctx = ModelContext(try makeCategoryContainer())
+        let (group, a, _) = makeGroup(ctx)
+        let vm = ExpenseEditViewModel(group: group)
+        vm.title = "阿嬤家"; vm.titleDidChange()
+        vm.totalAmountString = "100"
+        vm.selectedPayer = a
+        #expect(vm.save(modelContext: ctx) == nil)
+        let saved = try #require(group.expenses.first { $0.title == "阿嬤家" })
         #expect(saved.category == nil)
     }
 
@@ -284,6 +319,12 @@ struct CategoryStatsTests {
     func usesGuessForNil() {
         let totals = CategoryStats.totals(for: [expense("飯店", 500, nil)])
         #expect(totals.map(\.category) == [.lodging])
+    }
+
+    @Test("明確未分類的花費算在未分類，不是猜測的類別")
+    func explicitUncategorizedCountsAsUncategorized() {
+        let totals = CategoryStats.totals(for: [expense("加油", 300, "none")])
+        #expect(totals.map(\.category) == [nil])
     }
 
     @Test("入口用的快速判斷與 totals 是否為空一致")

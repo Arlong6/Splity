@@ -195,7 +195,9 @@ final class ExpenseEditViewModel {
             note = expense.note ?? ""
             if let code = expense.category {
                 autoGuessCategory = false
-                if let known = ExpenseCategory(rawValue: code) {
+                if code == ExpenseCategory.uncategorizedCode {
+                    category = nil
+                } else if let known = ExpenseCategory(rawValue: code) {
                     category = known
                 } else {
                     category = .other
@@ -376,7 +378,10 @@ final class ExpenseEditViewModel {
             savedExpense = expense
         }
         savedExpense.isEvenSplit = isEvenSplit
+        // 不再自動猜（手動選過、或原本就有分類）卻是未分類＝明確選了未分類，存 "none"；
+        // 還在自動猜而猜不到時存 nil，之後關鍵字清單擴充還能猜到。
         savedExpense.category = preservedCategoryCode ?? category?.rawValue
+            ?? (autoGuessCategory ? nil : ExpenseCategory.uncategorizedCode)
         savedExpense.updatedAt = Date()
         savedExpense.baseCurrencyCode = group.baseCurrencyCode
         savedExpense.lastEditorName = FirebaseSharingManager.shared.claimedMember(in: group)?.name

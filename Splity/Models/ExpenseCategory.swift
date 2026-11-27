@@ -33,15 +33,20 @@ enum ExpenseCategory: String, CaseIterable, Identifiable {
         }
     }
 
-    /// 沒有分類（`nil`）時顯示的名稱。跟「其他」不同：「其他」是明確選的。
+    /// 沒有分類時顯示的名稱。跟「其他」不同：「其他」是明確選的。
     static var uncategorizedName: String { localized("未分類") }
+
+    /// 使用者明確選了「未分類」時存的代碼，**不可改**。
+    /// 跟 `nil`（從沒設過，顯示時依名稱猜）要分開，不然改回未分類的花費會再被猜回原本的類別。
+    nonisolated static let uncategorizedCode = "none"
 }
 
 extension Expense {
-    /// 畫面與統計用的分類：有存就用存的（不認得的代碼當「其他」），
+    /// 畫面與統計用的分類：有存就用存的（明確未分類是 nil，不認得的代碼當「其他」），
     /// 沒存就依品項名稱猜。只用來顯示，**不寫回** `category`。
     var displayCategory: ExpenseCategory? {
         if let code = category {
+            if code == ExpenseCategory.uncategorizedCode { return nil }
             return ExpenseCategory(rawValue: code) ?? .other
         }
         return CategoryGuesser.guess(title: title)

@@ -6,17 +6,17 @@ final class CategoryUITests: XCTestCase {
 
     private struct Copy {
         let language: String
-        let skip, addExpense, itemName, amount, save, stats, transport, uncategorized, suggestion: String
+        let skip, addExpense, itemName, amount, save, stats, transport, uncategorized, suggestion, done: String
         let title: String
     }
 
     private let zh = Copy(language: "zh-Hant", skip: "跳過", addExpense: "新增花費", itemName: "品項名稱",
                           amount: "金額", save: "儲存", stats: "分類統計", transport: "交通",
-                          uncategorized: "未分類", suggestion: "分類不合用？告訴我們", title: "加油")
+                          uncategorized: "未分類", suggestion: "分類不合用？告訴我們", done: "完成", title: "加油")
     private let en = Copy(language: "en", skip: "Skip", addExpense: "Add Expense", itemName: "Item Name",
                           amount: "Amount", save: "Save", stats: "Category Breakdown", transport: "Transport",
                           uncategorized: "Uncategorized", suggestion: "Categories not working for you? Tell us",
-                          title: "taxi")
+                          done: "Done", title: "taxi")
 
     @MainActor func testCategoryFlowChinese() throws { try runFlow(zh) }
     @MainActor func testCategoryFlowEnglish() throws { try runFlow(en) }
@@ -88,6 +88,27 @@ final class CategoryUITests: XCTestCase {
         XCTAssertTrue(element(app, containing: c.uncategorized).exists)
         XCTAssertTrue(app.buttons[c.suggestion].exists)
         shot("\(c.language)-03-stats")
+
+        // 改回未分類：打開剛才那筆，分類選「未分類」存檔，列表那一列不再帶交通圖示
+        app.navigationBars[c.stats].buttons[c.done].tap()
+        XCTAssertTrue(row.waitForExistence(timeout: UITestTimeout.appear))
+        row.tap()
+        let editPicker = app.descendants(matching: .any)["categoryPicker"].firstMatch
+        XCTAssertTrue(editPicker.waitForExistence(timeout: UITestTimeout.appear))
+        editPicker.tap()
+        let option = app.buttons[c.uncategorized].firstMatch
+        XCTAssertTrue(option.waitForExistence(timeout: UITestTimeout.appear), "選單裡找不到未分類")
+        option.tap()
+        let saveEdit = app.buttons[c.save].firstMatch
+        XCTAssertTrue(saveEdit.waitForExistence(timeout: UITestTimeout.appear))
+        saveEdit.tap()
+        XCTAssertTrue(saveEdit.waitForNonExistence(timeout: UITestTimeout.disappear))
+        XCTAssertTrue(row.waitForNonExistence(timeout: UITestTimeout.disappear),
+                      "改回未分類後，那一列不應再帶交通的無障礙標籤")
+        let plainRow = app.descendants(matching: .any).matching(NSPredicate(
+            format: "label CONTAINS %@ AND label CONTAINS %@", c.title, "300")).firstMatch
+        XCTAssertTrue(plainRow.exists, "那筆花費本身應該還在")
+        shot("\(c.language)-04-back-to-uncategorized")
     }
 
     /// 選單的標題在 label、目前選的值在 value（依系統版本可能合在 label 裡），兩個一起看。
